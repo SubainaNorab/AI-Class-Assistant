@@ -1,0 +1,72 @@
+[
+  {
+    "id": 1,
+    "original_filename": "AI_Class_Assistant_Day_2_Tasks.pdf",
+    "stored_filename": "AI_Class_Assistant_Day_2_Tasks_20250724_182733.pdf",
+    "file_size": 2242,
+    "category": "pdfs",
+    "file_path": "uploads\\pdfs\\AI_Class_Assistant_Day_2_Tasks_20250724_182733.pdf",
+    "upload_timestamp": "2025-07-24T18:27:33.726924",
+    "status": "uploaded"
+  },
+  {
+    "id": 2,
+    "original_filename": "Application to HEC.docx",
+    "stored_filename": "Application_to_HEC_20250724_182925.docx",
+    "file_size": 12629,
+    "category": "documents",
+    "file_path": "uploads\\documents\\Application_to_HEC_20250724_182925.docx",
+    "upload_timestamp": "2025-07-24T18:29:26.232706",
+    "status": "uploaded"
+  },
+  {
+    "id": 3,
+    "original_filename": "ML_Week7.pptx",
+    "stored_filename": "ML_Week7_20250724_183009.pptx",
+    "file_size": 2978689,
+    "category": "presentations",
+    "file_path": "uploads\\presentations\\ML_Week7_20250724_183009.pptx",
+    "upload_timestamp": "2025-07-24T18:30:09.808209",
+    "status": "uploaded"
+  },
+  {
+    "id": 4,
+    "original_filename": "ML_Week7.pptx",
+    "stored_filename": "ML_Week7_20250724_183028.pptx",
+    "file_size": 2978689,
+    "category": "presentations",
+    "file_path": "uploads\\presentations\\ML_Week7_20250724_183028.pptx",
+    "upload_timestamp": "2025-07-24T18:30:28.240497",
+    "status": "uploaded"
+  },
+  {
+    "id": 5,
+    "original_filename": "ML_Week5.pptx",
+    "stored_filename": "ML_Week5_20250724_183039.pptx",
+    "file_size": 2466756,
+    "category": "presentations",
+    "file_path": "uploads\\presentations\\ML_Week5_20250724_183039.pptx",
+    "upload_timestamp": "2025-07-24T18:30:39.368080",
+    "status": "uploaded"
+  },
+  {
+    "id": 6,
+    "original_filename": "ML_Week7.pptx",
+    "stored_filename": "ML_Week7_20250724_183050.pptx",
+    "file_size": 2978689,
+    "category": "presentations",
+    "file_path": "uploads\\presentations\\ML_Week7_20250724_183050.pptx",
+    "upload_timestamp": "2025-07-24T18:30:50.386730",
+    "status": "uploaded"
+  },
+  {
+    "id": 7,
+    "original_filename": "ML_Week6.pptx",
+    "stored_filename": "ML_Week6_20250724_183104.pptx",
+    "file_size": 4174718,
+    "category": "presentations",
+    "file_path": "uploads\\presentations\\ML_Week6_20250724_183104.pptx",
+    "upload_timestamp": "2025-07-24T18:31:04.479125",
+    "status": "uploaded"
+  }
+]
