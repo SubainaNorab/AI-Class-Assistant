@@ -58,5 +58,45 @@
     "file_path": "uploads\\pdfs\\past_papers_20250724_185048.pdf",
     "upload_timestamp": "2025-07-24T18:50:48.223324",
     "status": "uploaded"
+  },
+  {
+    "id": 7,
+    "original_filename": "AI_Class_Assistant_Day_2_Tasks.pdf",
+    "stored_filename": "AI_Class_Assistant_Day_2_Tasks_20250724_193504.pdf",
+    "file_size": 2242,
+    "category": "pdfs",
+    "file_path": "uploads\\pdfs\\AI_Class_Assistant_Day_2_Tasks_20250724_193504.pdf",
+    "upload_timestamp": "2025-07-24T19:35:04.682348",
+    "status": "uploaded"
+  },
+  {
+    "id": 8,
+    "original_filename": "testAudio.opus",
+    "stored_filename": "testAudio_20250724_202018.opus",
+    "file_size": 54454,
+    "category": "audio",
+    "file_path": "uploads\\audio\\testAudio_20250724_202018.opus",
+    "upload_timestamp": "2025-07-24T20:20:18.622176",
+    "status": "uploaded"
+  },
+  {
+    "id": 9,
+    "original_filename": "Day2Logic.docx",
+    "stored_filename": "Day2Logic_20250724_202302.docx",
+    "file_size": 13299,
+    "category": "documents",
+    "file_path": "uploads\\documents\\Day2Logic_20250724_202302.docx",
+    "upload_timestamp": "2025-07-24T20:23:02.573386",
+    "status": "uploaded"
+  },
+  {
+    "id": 10,
+    "original_filename": "ML_Lab4 Updated.pptx",
+    "stored_filename": "ML_Lab4_Updated_20250724_202401.pptx",
+    "file_size": 1985442,
+    "category": "presentations",
+    "file_path": "uploads\\presentations\\ML_Lab4_Updated_20250724_202401.pptx",
+    "upload_timestamp": "2025-07-24T20:24:01.332335",
+    "status": "uploaded"
   }
 ]

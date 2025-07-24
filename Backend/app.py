@@ -20,8 +20,10 @@ ALLOWED_EXTENSIONS = {
     'docx': ['application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
     'pptx': ['application/vnd.openxmlformats-officedocument.presentationml.presentation'],
     'mp3': ['audio/mpeg', 'audio/mp3'],
-    'wav': ['audio/wav', 'audio/wave', 'audio/x-wav']
+    'wav': ['audio/wav', 'audio/wave', 'audio/x-wav'],
+    'opus': ['audio/opus', 'audio/ogg']  # added support for OPUS
 }
+
 
 # Create necessary directories
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -52,7 +54,7 @@ def get_file_category(filename):
         return 'documents'
     elif extension == 'pptx':
         return 'presentations'
-    elif extension in ['mp3', 'wav']:
+    elif extension in ['mp3', 'wav','opus']:
         return 'audio'
     return 'other'
 
