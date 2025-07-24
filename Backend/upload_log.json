@@ -10,16 +10,6 @@
     "status": "uploaded"
   },
   {
-    "id": 2,
-    "original_filename": "Application to HEC.docx",
-    "stored_filename": "Application_to_HEC_20250724_182925.docx",
-    "file_size": 12629,
-    "category": "documents",
-    "file_path": "uploads\\documents\\Application_to_HEC_20250724_182925.docx",
-    "upload_timestamp": "2025-07-24T18:29:26.232706",
-    "status": "uploaded"
-  },
-  {
     "id": 3,
     "original_filename": "ML_Week7.pptx",
     "stored_filename": "ML_Week7_20250724_183009.pptx",
@@ -27,16 +17,6 @@
     "category": "presentations",
     "file_path": "uploads\\presentations\\ML_Week7_20250724_183009.pptx",
     "upload_timestamp": "2025-07-24T18:30:09.808209",
-    "status": "uploaded"
-  },
-  {
-    "id": 4,
-    "original_filename": "ML_Week7.pptx",
-    "stored_filename": "ML_Week7_20250724_183028.pptx",
-    "file_size": 2978689,
-    "category": "presentations",
-    "file_path": "uploads\\presentations\\ML_Week7_20250724_183028.pptx",
-    "upload_timestamp": "2025-07-24T18:30:28.240497",
     "status": "uploaded"
   },
   {
@@ -67,6 +47,16 @@
     "category": "presentations",
     "file_path": "uploads\\presentations\\ML_Week6_20250724_183104.pptx",
     "upload_timestamp": "2025-07-24T18:31:04.479125",
+    "status": "uploaded"
+  },
+  {
+    "id": 6,
+    "original_filename": "past papers.pdf",
+    "stored_filename": "past_papers_20250724_185048.pdf",
+    "file_size": 1179477,
+    "category": "pdfs",
+    "file_path": "uploads\\pdfs\\past_papers_20250724_185048.pdf",
+    "upload_timestamp": "2025-07-24T18:50:48.223324",
     "status": "uploaded"
   }
 ]
