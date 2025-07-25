@@ -1,4 +1,4 @@
-from transformers import pipeline
+from transformers import pipeline #summaring
 
 # Load once
 summarizer = pipeline("summarization")
