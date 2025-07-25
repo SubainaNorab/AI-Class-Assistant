@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
+from summarizer import generate_summary 
 import os
 import json
 from datetime import datetime
@@ -287,6 +288,32 @@ def too_large(e):
         'success': False,
         'error': f'File too large. Maximum size is {MAX_FILE_SIZE // (1024*1024)} MB'
     }), 413
+
+## summarization endpoint
+
+@app.route('/summarize', methods=['POST'])
+def summarize_text():
+    """
+    API endpoint to summarize text
+    Expects JSON payload with 'text' field
+    Returns JSON with 'summary' field or error message
+    """
+    data = request.get_json()
+    text = data.get('text', '')
+    
+    if not text:
+        return jsonify({'error': 'No text provided'}), 400
+    
+    # Limit text length to 1000 characters
+    if len(text) > 1000:
+        text = text[:1000]
+    
+    try:
+        summary = generate_summary(text)
+        return jsonify({'summary': summary})
+    except Exception as e:
+        return jsonify({'error': f'Summarization failed: {str(e)}'}), 500
+
 
 if __name__ == '__main__':
     app.config['MAX_CONTENT_LENGTH'] = MAX_FILE_SIZE
