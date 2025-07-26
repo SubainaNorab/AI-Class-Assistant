@@ -10,10 +10,13 @@ import mimetypes
 app = Flask(__name__)
 CORS(app)  # Enable CORS for frontend integration
 
-# Configuration
-UPLOAD_FOLDER = 'uploads'
+# Get the directory where this script is located
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Configuration - use absolute paths
+UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB in bytes
-UPLOAD_LOG_FILE = 'upload_log.json'
+UPLOAD_LOG_FILE = os.path.join(BASE_DIR, 'upload_log.json')
 
 # Allowed file extensions and MIME types
 ALLOWED_EXTENSIONS = {
@@ -25,13 +28,12 @@ ALLOWED_EXTENSIONS = {
     'opus': ['audio/opus', 'audio/ogg']  # added support for OPUS
 }
 
-
-# Create necessary directories
+# Create necessary directories with absolute paths
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-os.makedirs('uploads/pdfs', exist_ok=True)
-os.makedirs('uploads/documents', exist_ok=True)
-os.makedirs('uploads/presentations', exist_ok=True)
-os.makedirs('uploads/audio', exist_ok=True)
+os.makedirs(os.path.join(UPLOAD_FOLDER, 'pdfs'), exist_ok=True)
+os.makedirs(os.path.join(UPLOAD_FOLDER, 'documents'), exist_ok=True)
+os.makedirs(os.path.join(UPLOAD_FOLDER, 'presentations'), exist_ok=True)
+os.makedirs(os.path.join(UPLOAD_FOLDER, 'audio'), exist_ok=True)
 
 # Initialize upload log if it doesn't exist
 if not os.path.exists(UPLOAD_LOG_FILE):
@@ -103,7 +105,15 @@ def log_upload(filename, original_filename, file_size, category, file_path):
 @app.route('/')
 def index():
     """Serve the main page"""
-    return send_from_directory('frontend/public', 'index.html')
+    frontend_path = os.path.join(BASE_DIR, 'frontend', 'public')
+    if os.path.exists(frontend_path):
+        return send_from_directory(frontend_path, 'index.html')
+    else:
+        return jsonify({
+            'message': 'File Upload API Server',
+            'status': 'running',
+            'endpoints': ['/upload', '/uploads', '/uploads/stats', '/summarize']
+        })
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
@@ -140,7 +150,7 @@ def upload_file():
         if not allowed_file(file.filename):
             return jsonify({
                 'success': False,
-                'error': 'File type not allowed. Supported formats: PDF, DOCX, PPTX, MP3, WAV'
+                'error': 'File type not allowed. Supported formats: PDF, DOCX, PPTX, MP3, WAV, OPUS'
             }), 400
         
         # Additional MIME type validation
@@ -314,7 +324,10 @@ def summarize_text():
     except Exception as e:
         return jsonify({'error': f'Summarization failed: {str(e)}'}), 500
 
-
 if __name__ == '__main__':
+    print(f"Upload folder: {UPLOAD_FOLDER}")
+    print(f"Upload log file: {UPLOAD_LOG_FILE}")
+    print(f"Base directory: {BASE_DIR}")
+    
     app.config['MAX_CONTENT_LENGTH'] = MAX_FILE_SIZE
     app.run(debug=True, host='0.0.0.0', port=5000)

@@ -10,16 +10,6 @@
     "status": "uploaded"
   },
   {
-    "id": 3,
-    "original_filename": "ML_Week7.pptx",
-    "stored_filename": "ML_Week7_20250724_183009.pptx",
-    "file_size": 2978689,
-    "category": "presentations",
-    "file_path": "uploads\\presentations\\ML_Week7_20250724_183009.pptx",
-    "upload_timestamp": "2025-07-24T18:30:09.808209",
-    "status": "uploaded"
-  },
-  {
     "id": 5,
     "original_filename": "ML_Week5.pptx",
     "stored_filename": "ML_Week5_20250724_183039.pptx",
@@ -97,6 +87,16 @@
     "category": "presentations",
     "file_path": "uploads\\presentations\\ML_Lab4_Updated_20250724_202401.pptx",
     "upload_timestamp": "2025-07-24T20:24:01.332335",
+    "status": "uploaded"
+  },
+  {
+    "id": 11,
+    "original_filename": "Day4_tasks.pdf",
+    "stored_filename": "Day4_tasks_20250726_202455.pdf",
+    "file_size": 3940409,
+    "category": "pdfs",
+    "file_path": "uploads\\pdfs\\Day4_tasks_20250726_202455.pdf",
+    "upload_timestamp": "2025-07-26T20:24:55.775963",
     "status": "uploaded"
   }
 ]
