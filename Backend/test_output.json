@@ -1,0 +1,51 @@
+{
+  "mcqs": [
+    {
+      "question": "What was the main topic discussed in this content?",
+      "options": {
+        "A": "Please review the original content for details",
+        "B": "AI service temporarily unavailable",
+        "C": "Try again in a few moments",
+        "D": "Check your API key configuration"
+      },
+      "correct_answer": "A",
+      "explanation": "AI service temporarily unavailable. Please try again."
+    },
+    {
+      "question": "Which key concept should be remembered?",
+      "options": {
+        "A": "Concept A - Review needed",
+        "B": "Concept B - Review needed",
+        "C": "Concept C - Review needed",
+        "D": "Concept D - Review needed"
+      },
+      "correct_answer": "B",
+      "explanation": "AI service temporarily unavailable. Please try again."
+    },
+    {
+      "question": "What is the most important takeaway?",
+      "options": {
+        "A": "Important point A",
+        "B": "Important point B",
+        "C": "Important point C",
+        "D": "Important point D"
+      },
+      "correct_answer": "C",
+      "explanation": "AI service temporarily unavailable. Please try again."
+    }
+  ],
+  "flashcards": [
+    {
+      "question": "What is the main concept covered?",
+      "answer": "AI service temporarily unavailable. Please review your notes and try again."
+    },
+    {
+      "question": "Key definition to remember?",
+      "answer": "AI service temporarily unavailable. Please review your notes and try again."
+    },
+    {
+      "question": "Important process or method discussed?",
+      "answer": "AI service temporarily unavailable. Please review your notes and try again."
+    }
+  ]
+}
