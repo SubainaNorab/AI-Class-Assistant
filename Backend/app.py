@@ -6,6 +6,7 @@ import json
 from datetime import datetime
 from werkzeug.utils import secure_filename
 import mimetypes
+from utils.quiz_generator import build_prompt, call_ai_model
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for frontend integration
@@ -323,6 +324,20 @@ def summarize_text():
         return jsonify({'summary': summary})
     except Exception as e:
         return jsonify({'error': f'Summarization failed: {str(e)}'}), 500
+    
+
+@app.route("/generate_quiz", methods=["POST"])
+def generate_quiz():
+    data = request.json
+    summary = data.get("summary")
+
+    if not summary:
+        return jsonify({"error": "Summary is required"}), 400
+
+    prompt = build_prompt(summary)
+    result = call_ai_model(prompt)
+
+    return jsonify(result)
 
 if __name__ == '__main__':
     print(f"Upload folder: {UPLOAD_FOLDER}")
