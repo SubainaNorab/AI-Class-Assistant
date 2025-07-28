@@ -425,11 +425,6 @@ def generate_quiz():
 
     return jsonify(result)
 
-<<<<<<< HEAD
-
-if __name__ == '__main__':
-    app.run(debug=True, port=5000)
-=======
 #generate_flashcards endpoint:
 # Replace your existing /generate_flashcards and /flashcards endpoints with these:
 
@@ -560,4 +555,3 @@ if __name__ == '__main__':
     
     app.config['MAX_CONTENT_LENGTH'] = MAX_FILE_SIZE
     app.run(debug=True, host='0.0.0.0', port=5000)
->>>>>>> c7ca0182e83d007397ecfba1f01c5638ffb1596a

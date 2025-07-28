@@ -4,7 +4,7 @@ import json
 
 # Configuration
 TOGETHER_MODEL = "mistralai/Mixtral-8x7B-Instruct-v0.1"
-TOGETHER_API_KEY = "9b5fdbfe6e161ca597bbdcda5d7892b41dce8932d1ce02a2504b0cbd5f9bd400"
+TOGETHER_API_KEY = "api-key"
 together.api_key = TOGETHER_API_KEY
 
 def build_prompt(text, num_questions=5):
