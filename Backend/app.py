@@ -349,3 +349,7 @@ def generate_quiz():
         return jsonify({"error": f"DB insert failed: {str(e)}"}), 500
 
     return jsonify(result)
+
+
+if __name__ == '__main__':
+    app.run(debug=True, port=5000)
