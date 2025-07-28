@@ -7,14 +7,9 @@ from datetime import datetime
 from werkzeug.utils import secure_filename
 import mimetypes
 from utils.quiz_generator import build_prompt, call_ai_model
-<<<<<<< HEAD
-from database import quiz_collection, flashcard_collection
-
-=======
 from utils.flashcard_generator import generate_flashcards
 import sqlite3
 import hashlib
->>>>>>> c7ca0182e83d007397ecfba1f01c5638ffb1596a
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for frontend integration
