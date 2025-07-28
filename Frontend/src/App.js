@@ -1,10 +1,13 @@
+import React from 'react';
+import FlashcardTestPage from './FlashcardTestPage';
+import './App.css';
+
 function App() {
   return (
     <div className="App">
-      <h1>AI Class Assistant</h1>
+      <FlashcardTestPage />
     </div>
   );
 }
-// just to update
 
 export default App;

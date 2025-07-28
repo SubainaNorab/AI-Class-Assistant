@@ -7,6 +7,9 @@ from datetime import datetime
 from werkzeug.utils import secure_filename
 import mimetypes
 from utils.quiz_generator import build_prompt, call_ai_model
+from utils.flashcard_generator import generate_flashcards
+import sqlite3
+import hashlib
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for frontend integration
@@ -200,6 +203,75 @@ def upload_file():
             'error': f'Upload failed: {str(e)}'
         }), 500
 
+def init_flashcard_db():
+    """Initialize SQLite database for flashcards"""
+    conn = sqlite3.connect('flashcards.db')
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS flashcards (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            content_hash TEXT NOT NULL,
+            question TEXT NOT NULL,
+            answer TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            user_id TEXT DEFAULT 'default_user'
+        )
+    ''')
+    
+    conn.commit()
+    conn.close()
+
+def save_flashcards_to_db(flashcards, content_hash, user_id='default_user'):
+    """Save flashcards to database"""
+    conn = sqlite3.connect('flashcards.db')
+    cursor = conn.cursor()
+    
+    saved_ids = []
+    for flashcard in flashcards:
+        cursor.execute('''
+            INSERT INTO flashcards (content_hash, question, answer, user_id)
+            VALUES (?, ?, ?, ?)
+        ''', (content_hash, flashcard['question'], flashcard['answer'], user_id))
+        saved_ids.append(cursor.lastrowid)
+    
+    conn.commit()
+    conn.close()
+    return saved_ids
+
+def get_flashcards_from_db(content_hash=None, user_id='default_user'):
+    """Retrieve flashcards from database"""
+    conn = sqlite3.connect('flashcards.db')
+    cursor = conn.cursor()
+    
+    if content_hash:
+        cursor.execute('''
+            SELECT id, question, answer, created_at 
+            FROM flashcards 
+            WHERE content_hash = ? AND user_id = ?
+            ORDER BY created_at DESC
+        ''', (content_hash, user_id))
+    else:
+        cursor.execute('''
+            SELECT id, question, answer, created_at 
+            FROM flashcards 
+            WHERE user_id = ?
+            ORDER BY created_at DESC
+        ''', (user_id,))
+    
+    flashcards = []
+    for row in cursor.fetchall():
+        flashcards.append({
+            'id': row[0],
+            'question': row[1],
+            'answer': row[2],
+            'created_at': row[3]
+        })
+    
+    conn.close()
+    return flashcards
+
+
 @app.route('/uploads', methods=['GET'])
 def list_uploads():
     """List all uploaded files"""
@@ -339,10 +411,133 @@ def generate_quiz():
 
     return jsonify(result)
 
+#generate_flashcards endpoint:
+# Replace your existing /generate_flashcards and /flashcards endpoints with these:
+
+@app.route('/generate_flashcards', methods=['POST'])
+def generate_flashcards_endpoint():
+    """Generate flashcards from provided content with enhanced error reporting"""
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': 'No JSON data provided'
+            }), 400
+        
+        content = data.get('content', '').strip()
+        user_id = data.get('user_id', 'default_user')
+        
+        if not content:
+            return jsonify({
+                'success': False,
+                'error': 'No content provided'
+            }), 400
+        
+        # Limit content length to prevent API overuse
+        if len(content) > 5000:
+            content = content[:5000]
+        
+        # Generate a simple hash for content to avoid duplicates
+        content_hash = hashlib.md5(content.encode()).hexdigest()
+        
+        # Check if flashcards already exist for this content
+        existing_flashcards = get_flashcards_from_db(content_hash, user_id)
+        if existing_flashcards:
+            return jsonify({
+                'success': True,
+                'flashcards': existing_flashcards,
+                'source': 'database',
+                'message': 'Flashcards retrieved from database',
+                'count': len(existing_flashcards)
+            }), 200
+        
+        # Generate new flashcards
+        result = generate_flashcards(content)
+        
+        if not result.get('success', False):
+            return jsonify({
+                'success': False,
+                'error': result.get('error', 'Failed to generate flashcards'),
+                'ai_status': result.get('ai_status', {})
+            }), 500
+        
+        flashcards = result.get('flashcards', [])
+        
+        # Save to database
+        try:
+            saved_ids = save_flashcards_to_db(flashcards, content_hash, user_id)
+            for i, flashcard in enumerate(flashcards):
+                if i < len(saved_ids):
+                    flashcard['id'] = saved_ids[i]
+        except Exception as db_error:
+            print(f"Database save error: {db_error}")
+        
+        # Prepare response
+        response_data = {
+            'success': True,
+            'flashcards': flashcards,
+            'source': result.get('source', 'unknown'),
+            'count': len(flashcards),
+            'message': result.get('user_message', 'Flashcards generated successfully')
+        }
+        
+        # Add AI status information
+        if 'ai_status' in result:
+            response_data['ai_status'] = result['ai_status']
+        
+        if 'note' in result:
+            response_data['note'] = result['note']
+        
+        return jsonify(response_data), 200
+        
+    except Exception as e:
+        print(f"Flashcard generation error: {e}")
+        return jsonify({
+            'success': False,
+            'error': f'Internal server error: {str(e)}'
+        }), 500
+
+@app.route('/flashcards', methods=['GET'])
+def get_all_flashcards():
+    """Get all flashcards for a user"""
+    try:
+        user_id = request.args.get('user_id', 'default_user')
+        flashcards = get_flashcards_from_db(user_id=user_id)
+        
+        # Ensure proper JSON serialization
+        serialized_flashcards = []
+        for flashcard in flashcards:
+            serialized_flashcards.append({
+                'id': flashcard.get('id'),
+                'question': str(flashcard.get('question', '')),
+                'answer': str(flashcard.get('answer', '')),
+                'created_at': flashcard.get('created_at')
+            })
+        
+        return jsonify({
+            'success': True,
+            'flashcards': serialized_flashcards,
+            'count': len(serialized_flashcards)
+        }), 200
+        
+    except Exception as e:
+        print(f"Get flashcards error: {e}")
+        return jsonify({
+            'success': False,
+            'error': f'Failed to retrieve flashcards: {str(e)}'
+        }), 500
+
+
 if __name__ == '__main__':
     print(f"Upload folder: {UPLOAD_FOLDER}")
     print(f"Upload log file: {UPLOAD_LOG_FILE}")
     print(f"Base directory: {BASE_DIR}")
+    
+    # Initialize flashcard database
+    init_flashcard_db()
+    print("Flashcard database initialized")
     
     app.config['MAX_CONTENT_LENGTH'] = MAX_FILE_SIZE
     app.run(debug=True, host='0.0.0.0', port=5000)
