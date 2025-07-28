@@ -7,6 +7,8 @@ from datetime import datetime
 from werkzeug.utils import secure_filename
 import mimetypes
 from utils.quiz_generator import build_prompt, call_ai_model
+from database import quiz_collection, flashcard_collection
+
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for frontend integration
@@ -337,12 +339,13 @@ def generate_quiz():
     prompt = build_prompt(summary)
     result = call_ai_model(prompt)
 
-    return jsonify(result)
+    # Try saving to DB if quiz and flashcards exist
+    try:
+        if "quiz" in result:
+            quiz_collection.insert_many(result["quiz"])
+        if "flashcards" in result:
+            flashcard_collection.insert_many(result["flashcards"])
+    except Exception as e:
+        return jsonify({"error": f"DB insert failed: {str(e)}"}), 500
 
-if __name__ == '__main__':
-    print(f"Upload folder: {UPLOAD_FOLDER}")
-    print(f"Upload log file: {UPLOAD_LOG_FILE}")
-    print(f"Base directory: {BASE_DIR}")
-    
-    app.config['MAX_CONTENT_LENGTH'] = MAX_FILE_SIZE
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    return jsonify(result)
