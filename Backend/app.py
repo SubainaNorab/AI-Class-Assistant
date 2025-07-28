@@ -398,28 +398,75 @@ def summarize_text():
         return jsonify({'error': f'Summarization failed: {str(e)}'}), 500
     
 
-@app.route("/generate_quiz", methods=["POST"])
+@app.route('/generate-quiz', methods=['POST'])
 def generate_quiz():
-    data = request.json
-    summary = data.get("summary")
+    if 'file' not in request.files:
+        return jsonify({"error": "No file part"}), 400
 
-    if not summary:
-        return jsonify({"error": "Summary is required"}), 400
+    file = request.files['file']
 
-    prompt = build_prompt(summary)
-    result = call_ai_model(prompt)
+    if file.filename == '':
+        return jsonify({"error": "No selected file"}), 400
 
-    # Try saving to DB if quiz and flashcards exist
-    try:
-        if "quiz" in result:
-            quiz_collection.insert_many(result["quiz"])
-        if "flashcards" in result:
-            flashcard_collection.insert_many(result["flashcards"])
-    except Exception as e:
-        return jsonify({"error": f"DB insert failed: {str(e)}"}), 500
+    if file and allowed_file(file.filename):
+        filename = secure_filename(file.filename)
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(filepath)
 
-    return jsonify(result)
+        # Read and process file content
+        file_ext = filename.rsplit('.', 1)[1].lower()
+        content = ""
+        if file_ext == 'txt':
+            with open(filepath, 'r', encoding='utf-8') as f:
+                content = f.read()
+        elif file_ext == 'pdf':
+            import fitz  # PyMuPDF
+            doc = fitz.open(filepath)
+            for page in doc:
+                content += page.get_text()
+        else:
+            return jsonify({"error": "Unsupported file type"}), 400
 
+        content = content.strip()
+        if len(content) > 5000:
+            content = content[:5000]
+
+        # === UPDATED QUIZ & FLASHCARD GENERATION ===
+        prompt = build_prompt(content)
+        quiz = call_ai_model(prompt)
+        flashcards = generate_flashcards(content)
+
+        if not quiz and not flashcards:
+            return jsonify({"error": "Quiz or flashcards not generated."}), 500
+
+        record = {
+            "lecture_title": filename,
+            "quiz": quiz,
+            "flashcards": flashcards,
+            "created_at": datetime.utcnow()
+        }
+
+        quiz_collection.insert_one({
+            "lecture_title": filename,
+            "quiz": quiz,
+            "created_at": datetime.utcnow()
+        })
+
+        flashcard_collection.insert_one({
+            "lecture_title": filename,
+            "flashcards": flashcards,
+            "created_at": datetime.utcnow()
+        })
+
+        return jsonify({
+            "message": "Quiz and flashcards generated successfully",
+            "data": {
+                "quiz": quiz,
+                "flashcards": flashcards
+            }
+        })
+
+    return jsonify({"error": "Invalid file"}), 400
 #generate_flashcards endpoint:
 # Replace your existing /generate_flashcards and /flashcards endpoints with these:
 
