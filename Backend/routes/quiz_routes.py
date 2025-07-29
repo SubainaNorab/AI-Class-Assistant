@@ -1,53 +1,59 @@
-from fastapi import APIRouter, UploadFile, File
+from fastapi import APIRouter, UploadFile, File, HTTPException
+from pydantic import BaseModel
+from utils.quiz_generator import build_prompt, call_ai_model
+from database import quiz_collection, flashcard_collection
 from datetime import datetime
-import fitz  # PyMuPDF
 
-from utils import generate_quiz_and_flashcards
-from config.db import quiz_collection  # MongoDB collection
+router = APIRouter()
 
-quiz_router = APIRouter()
+class SummaryInput(BaseModel):
+    lecture_title: str
+    summary: str
 
-@quiz_router.post("/generate-quiz")
-async def generate_quiz_endpoint(file: UploadFile = File(...)):
+@router.post("/generate-quiz-from-summary/")
+async def generate_quiz_from_summary(data: SummaryInput):
     try:
-        # Read file content
-        content = await file.read()
-        text = ""
+        prompt = build_prompt(data.summary)
+        result = call_ai_model(prompt)
 
-        # Extract text based on file type
-        if file.filename.endswith(".pdf"):
-            doc = fitz.open(stream=content, filetype="pdf")
-            for page in doc:
-                text += page.get_text()
-        elif file.filename.endswith(".txt"):
-            text = content.decode("utf-8")
-        else:
-            return {"error": "Unsupported file type. Only .pdf and .txt allowed."}
+        if not result or ("quiz" not in result and "flashcards" not in result):
+            raise HTTPException(status_code=400, detail="Invalid AI result")
 
-        # Optional: Trim long input
-        text = text.strip()
-        if len(text) > 5000:
-            text = text[:5000]
+        created_at = datetime.utcnow()
 
-        # Generate quiz and flashcards
-        result = generate_quiz_and_flashcards(text)
+        # Quiz
+        quiz_docs = [
+            {
+                "lecture_title": data.lecture_title,
+                "question": q["question"],
+                "options": q["options"],
+                "answer": q["answer"],
+                "created_at": created_at
+            }
+            for q in result.get("quiz", [])
+        ]
 
-        if not result.get("quiz") and not result.get("flashcards"):
-            return {"error": "Quiz or flashcards not generated."}
+        # Flashcards
+        flashcard_docs = [
+            {
+                "lecture_title": data.lecture_title,
+                "question": fc["question"],
+                "answer": fc["answer"],
+                "created_at": created_at
+            }
+            for fc in result.get("flashcards", [])
+        ]
 
-        # Store in MongoDB
-        document = {
-            "lecture_title": file.filename,
-            "quiz": result["quiz"],
-            "flashcards": result["flashcards"],
-            "created_at": datetime.utcnow()
-        }
-        await quiz_collection.insert_one(document)
+        if quiz_docs:
+            quiz_collection.insert_many(quiz_docs)
+        if flashcard_docs:
+            flashcard_collection.insert_many(flashcard_docs)
 
         return {
-            "message": "Quiz and flashcards generated successfully",
-            "data": result
+            "message": "Quiz and flashcards generated from summary and saved.",
+            "quiz_count": len(quiz_docs),
+            "flashcard_count": len(flashcard_docs)
         }
 
     except Exception as e:
-        return {"error": "Failed to process file", "details": str(e)}
+        raise HTTPException(status_code=500, detail=f"Error generating quiz: {str(e)}")
