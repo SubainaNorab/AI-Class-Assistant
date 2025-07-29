@@ -2,7 +2,7 @@
 import json
 import re
 
-together.api_key = "65d08a48d954158c6d322b2e3b85596627eac64ec4e61e218ad4b3e8e87cff81"
+together.api_key = "api-key"
 LLM_MODEL = "mistralai/Mixtral-8x7B-Instruct-v0.1"
 
 def build_prompt(summary):
