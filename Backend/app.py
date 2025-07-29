@@ -4,7 +4,7 @@ from summarizer import generate_summary
 from utils.quiz_generator import build_prompt, call_ai_model  # remove generate_flashcards
 from utils.pdf_reader import extract_text_from_pdf
 from werkzeug.utils import secure_filename
-from datetime import datetime
+from datetime import datetime, timezone
 from database import quiz_collection, flashcard_collection
 import os
 
@@ -56,8 +56,6 @@ def summarize_text():
 
 @app.route('/generate-quiz', methods=['POST'])
 def generate_quiz():
-    from utils.flashcard_generator import generate_flashcards  # Move this here if not needed elsewhere
-
     data = request.get_json()
     summary_text = data.get("summary", "").strip()
     lecture_title = data.get("lecture_title", "Untitled")
@@ -69,28 +67,33 @@ def generate_quiz():
         summary_text = summary_text[:5000]
 
     try:
-        # Build prompt and get raw output from LLM
         prompt = build_prompt(summary_text)
-        raw_output = call_ai_model(prompt)
+        ai_response = call_ai_model(prompt)
 
-        # Try to parse JSON from raw output
-        import json, re
+        # ✅ Validate that ai_response is a string before JSON parsing
+        if isinstance(ai_response, str):
+            import json, re
 
-        # Extract JSON part from raw LLM output
-        json_match = re.search(r"\{[\s\S]*?\}", raw_output)
-        if not json_match:
-            return jsonify({"error": "No JSON content found in output."}), 500
+            # Extract JSON object from messy output (Raw LLM output)
+            match = re.search(r"\{[\s\S]*\}", ai_response)
+            if match:
+                parsed_output = json.loads(match.group())
+            else:
+                return jsonify({"error": "No valid JSON found in LLM output"}), 500
+        elif isinstance(ai_response, dict):
+            parsed_output = ai_response
+        else:
+            return jsonify({"error": "Unexpected AI response format"}), 500
 
-        parsed_data = json.loads(json_match.group())
-
-        quiz = parsed_data.get("quiz")
-        flashcards = parsed_data.get("flashcards")
+        quiz = parsed_output.get("quiz", [])
+        flashcards = parsed_output.get("flashcards", [])
 
         if not quiz or not flashcards:
             return jsonify({"error": "Quiz or flashcards generation failed"}), 500
 
         # Save to MongoDB
-        created_at = datetime.utcnow()
+        created_at = datetime.now(timezone.utc)
+
         quiz_docs = [{
             "lecture_title": lecture_title,
             "question": q.get("question"),
@@ -112,13 +115,13 @@ def generate_quiz():
         return jsonify({
             "message": "Quiz and flashcards generated successfully",
             "quiz_count": len(quiz_docs),
-            "flashcard_count": len(flashcard_docs)
+            "flashcard_count": len(flashcard_docs),
+            "quiz": quiz,
+            "flashcards": flashcards
         }), 200
 
-    except json.JSONDecodeError as e:
-        return jsonify({"error": f"Failed to parse JSON from LLM output: {str(e)}"}), 500
-    except Exception as ex:
-        return jsonify({"error": f"Unexpected error: {str(ex)}"}), 500
+    except Exception as e:
+        return jsonify({"error": f"Unexpected error: {str(e)}"}), 500
 
 @app.route('/')
 def index():
