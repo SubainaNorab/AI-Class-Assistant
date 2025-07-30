@@ -2,9 +2,11 @@
 import json
 import re
 
+# === TOGETHER AI SETUP ===
 together.api_key = "api-key"
 LLM_MODEL = "mistralai/Mixtral-8x7B-Instruct-v0.1"
 
+# === Prompt Builder ===
 def build_prompt(summary):
     return f"""
 Generate a quiz and flashcards from the following summary:
@@ -16,20 +18,32 @@ Format:
 {{
   "quiz": [
     {{
-      "question": "...",
+      "question": "What is ...?",
       "options": ["A", "B", "C", "D"],
       "answer": "Correct option"
     }}
   ],
   "flashcards": [
     {{
-      "question": "...",
+      "question": "...?",
       "answer": "..."
     }}
   ]
 }}
+Only return the JSON content.
 """
 
+# === Extract JSON String from Output ===
+def extract_json_string(output):
+    try:
+        match = re.search(r"```(?:json)?\s*([\s\S]*?)```", output)
+        if match:
+            return match.group(1)
+        return output.strip()
+    except Exception:
+        return output.strip()
+
+# === Call LLM and Return Parsed JSON ===
 def call_ai_model(prompt):
     try:
         response = together.Complete.create(
@@ -39,29 +53,31 @@ def call_ai_model(prompt):
             temperature=0.7,
             stop=["</s>"]
         )
-        
-        raw_text = response["choices"][0]["text"]
-        print("🔹Raw LLM Output:\n", raw_text)
 
-        # Try to find and clean the JSON part
-        json_match = re.search(r'\{.*\}', raw_text, re.DOTALL)
-        if not json_match:
-            raise ValueError("No JSON content found in output.")
-        
-        json_text = json_match.group(0)
-        json_text = json_text.replace("“", '"').replace("”", '"').replace("‘", "'").replace("’", "'")
-        json_text = re.sub(r",\s*([\]}])", r"\1", json_text).strip()
+        raw_output = response.get("output") or response.get("choices", [{}])[0].get("text", "")
+        print("🔹 Raw LLM Output:\n", raw_output)
 
-        return json.loads(json_text)
+        json_string = extract_json_string(raw_output)
+        json_string = json_string.replace("“", '"').replace("”", '"').replace("‘", "'").replace("’", "'")
+        json_string = re.sub(r",\s*([\]}])", r"\1", json_string).strip()
+
+        return json.loads(json_string)
+
+    except json.JSONDecodeError as e:
+        print("❌ JSON Decode Error:", e)
+        print("✂️ Raw extracted string:", json_string)
+        return {"error": "Unexpected AI response format"}
 
     except Exception as e:
-        print("Model call error:", e)
-        return None
+        print("❌ Model call error:", e)
+        return {"error": f"Unexpected error: {str(e)}"}
 
+# === Final Exported Function ===
 def generate_quiz_and_flashcards(summary):
     result = call_ai_model(build_prompt(summary))
+
     if result and "quiz" in result and "flashcards" in result:
         return result["quiz"], result["flashcards"]
     else:
-        print("Quiz or flashcards generation failed")
+        print("⚠️ Quiz or flashcards generation failed:", result)
         return [], []
