@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import FlashcardViewer from './FlashcardViewer';
+import { useNavigate } from 'react-router-dom'; // ✅ import useNavigate for routing
+import FlashcardViewer from './components/FlashcardViewer';
 import './FlashcardTestPage.css';
 
-const FlashcardTestPage = () => {
+function FlashcardTestPage({ onFeedbackClick, onStatsClick }) {
   const [inputContent, setInputContent] = useState('');
   const [contentToProcess, setContentToProcess] = useState('');
+  const navigate = useNavigate(); // ✅ React Router navigation hook
 
   const sampleContent = `Machine Learning is a subset of artificial intelligence that enables computers to learn and make decisions from data without being explicitly programmed. There are three main types: supervised learning (using labeled data), unsupervised learning (finding patterns in unlabeled data), and reinforcement learning (learning through trial and error). Popular algorithms include linear regression, decision trees, neural networks, and support vector machines. ML is widely used in applications like image recognition, natural language processing, recommendation systems, and autonomous vehicles.`;
 
@@ -22,6 +24,10 @@ const FlashcardTestPage = () => {
   const clearContent = () => {
     setInputContent('');
     setContentToProcess('');
+  };
+
+  const handleViewStats = () => {
+    navigate('/flashcard-stats'); // ✅ Navigate to stats page
   };
 
   return (
@@ -44,7 +50,7 @@ const FlashcardTestPage = () => {
               className="content-textarea"
             />
           </div>
-          
+
           <div className="button-group">
             <button type="submit" className="submit-btn" disabled={!inputContent.trim()}>
               Generate Flashcards
@@ -54,6 +60,9 @@ const FlashcardTestPage = () => {
             </button>
             <button type="button" onClick={clearContent} className="clear-btn">
               Clear
+            </button>
+            <button type="button" onClick={handleViewStats} className="stats-btn">
+              View Stats
             </button>
           </div>
         </form>
@@ -75,6 +84,6 @@ const FlashcardTestPage = () => {
       </div>
     </div>
   );
-};
+}
 
 export default FlashcardTestPage;

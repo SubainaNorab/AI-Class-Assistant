@@ -1,0 +1,21 @@
+.flashcard-stats-page {
+  padding: 2rem;
+  background-color: #f0f8ff;
+  font-family: sans-serif;
+}
+
+.stats-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.stats-table th,
+.stats-table td {
+  border: 1px solid #ccc;
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.stats-table th {
+  background-color: #e0e0e0;
+}
