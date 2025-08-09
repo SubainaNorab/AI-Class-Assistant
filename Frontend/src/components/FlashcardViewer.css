@@ -1,0 +1,349 @@
+/* Frontend/src/components/FlashcardViewer.css */
+.flashcard-viewer {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+/* No Flashcards State */
+.no-flashcards {
+  text-align: center;
+  padding: 60px 20px;
+  background: #f8fafc;
+  border-radius: 16px;
+  border: 2px dashed #cbd5e1;
+}
+
+.no-content-icon {
+  font-size: 4rem;
+  margin-bottom: 16px;
+  opacity: 0.6;
+}
+
+.no-flashcards h3 {
+  color: #374151;
+  margin: 0 0 8px 0;
+  font-size: 1.25rem;
+}
+
+.no-flashcards p {
+  color: #6b7280;
+  margin: 0;
+}
+
+/* Card Counter */
+.card-counter {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.card-counter span {
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  color: white;
+  padding: 8px 20px;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+}
+
+/* Flashcard Container */
+.flashcard-container {
+  perspective: 1000px;
+  margin-bottom: 32px;
+}
+
+.flashcard {
+  position: relative;
+  width: 100%;
+  height: 300px;
+  transform-style: preserve-3d;
+  transition: transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1);
+  cursor: pointer;
+  user-select: none;
+}
+
+.flashcard.flipped {
+  transform: rotateY(180deg);
+}
+
+.flashcard-front,
+.flashcard-back {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  border-radius: 20px;
+  display: flex;
+  flex-direction: column;
+  padding: 32px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s ease;
+}
+
+.flashcard:hover .flashcard-front,
+.flashcard:hover .flashcard-back {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 50px rgba(0, 0, 0, 0.2);
+}
+
+.flashcard-front {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.flashcard-back {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  color: white;
+  transform: rotateY(180deg);
+}
+
+.card-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  opacity: 0.8;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.card-content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 1.25rem;
+  line-height: 1.6;
+  font-weight: 500;
+  padding: 20px 0;
+}
+
+.flip-hint {
+  text-align: center;
+  font-size: 0.8rem;
+  opacity: 0.7;
+  font-weight: 400;
+  margin-top: auto;
+}
+
+/* Navigation Controls */
+.navigation-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.nav-button,
+.flip-button {
+  padding: 12px 24px;
+  border: none;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.nav-button {
+  background: linear-gradient(135deg, #374151 0%, #1f2937 100%);
+  color: white;
+  min-width: 120px;
+}
+
+.nav-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(55, 65, 81, 0.3);
+}
+
+.nav-button:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.flip-button {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  min-width: 140px;
+}
+
+.flip-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(16, 185, 129, 0.3);
+}
+
+/* Card Indicators */
+.card-indicators {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.indicator {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #e5e7eb;
+  color: #6b7280;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.indicator:hover {
+  background: #d1d5db;
+  transform: scale(1.1);
+}
+
+.indicator.active {
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  color: white;
+  transform: scale(1.15);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+/* Lecture Information */
+.lecture-info {
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.lecture-info small {
+  color: #6b7280;
+  font-style: italic;
+  background: #f3f4f6;
+  padding: 6px 12px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+}
+
+/* Study Progress */
+.study-progress {
+  text-align: center;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  background: #e5e7eb;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.study-progress small {
+  color: #6b7280;
+  font-weight: 500;
+  font-size: 0.85rem;
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+  .flashcard-viewer {
+    padding: 16px;
+  }
+  
+  .flashcard {
+    height: 280px;
+  }
+  
+  .flashcard-front,
+  .flashcard-back {
+    padding: 24px;
+  }
+  
+  .card-content {
+    font-size: 1.1rem;
+  }
+  
+  .navigation-controls {
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .nav-button,
+  .flip-button {
+    width: 100%;
+    max-width: 200px;
+  }
+  
+  .card-indicators {
+    gap: 6px;
+  }
+  
+  .indicator {
+    width: 32px;
+    height: 32px;
+    font-size: 0.75rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .flashcard {
+    height: 250px;
+  }
+  
+  .flashcard-front,
+  .flashcard-back {
+    padding: 20px;
+  }
+  
+  .card-content {
+    font-size: 1rem;
+    padding: 16px 0;
+  }
+  
+  .card-indicators {
+    max-width: 300px;
+    margin: 0 auto 20px;
+  }
+}
+
+/* Animation for card transitions */
+@keyframes cardSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.flashcard {
+  animation: cardSlideIn 0.4s ease-out;
+}
+
+/* Focus states for accessibility */
+.nav-button:focus,
+.flip-button:focus,
+.indicator:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+.flashcard:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 4px;
+}
