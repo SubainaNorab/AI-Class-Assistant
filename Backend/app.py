@@ -1,15 +1,19 @@
+# Backend/app.py
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from summarizer import generate_summary
-from utils.quiz_generator import build_prompt, call_ai_model  # remove generate_flashcards
+from utils.quiz_generator import build_prompt, call_ai_model
 from utils.pdf_reader import extract_text_from_pdf
 from werkzeug.utils import secure_filename
 from datetime import datetime, timezone
-from database import quiz_collection, flashcard_collection
+from database import quiz_collection, flashcard_collection, db
 import os
 
 app = Flask(__name__)
 CORS(app)
+
+# Create feedback collection
+feedback_collection = db["feedback"]
 
 UPLOAD_FOLDER = 'uploaded_files'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -70,7 +74,7 @@ def generate_quiz():
         prompt = build_prompt(summary_text)
         ai_response = call_ai_model(prompt)
 
-        # ✅ Validate that ai_response is a string before JSON parsing
+        # Validate that ai_response is a string before JSON parsing
         if isinstance(ai_response, str):
             import json, re
 
@@ -122,6 +126,88 @@ def generate_quiz():
 
     except Exception as e:
         return jsonify({"error": f"Unexpected error: {str(e)}"}), 500
+
+# Feedback Routes
+@app.route('/feedback', methods=['POST'])
+def submit_feedback():
+    try:
+        data = request.get_json()
+        
+        # Validate required fields
+        required_fields = ['type', 'item_id', 'rating']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({"error": f"Missing required field: {field}"}), 400
+        
+        rating = data.get('rating')
+        if not isinstance(rating, int) or rating < 1 or rating > 5:
+            return jsonify({"error": "Rating must be an integer between 1 and 5"}), 400
+        
+        feedback_doc = {
+            "type": data.get('type'),
+            "item_id": data.get('item_id'),
+            "rating": rating,
+            "comment": data.get('comment', ''),
+            "created_at": datetime.now(timezone.utc)
+        }
+        
+        result = feedback_collection.insert_one(feedback_doc)
+        
+        return jsonify({
+            "message": "Feedback submitted successfully",
+            "feedback_id": str(result.inserted_id)
+        }), 200
+        
+    except Exception as e:
+        return jsonify({"error": f"Error submitting feedback: {str(e)}"}), 500
+
+@app.route('/stats', methods=['GET'])
+def get_stats():
+    try:
+        # Count total quizzes and flashcards
+        total_quizzes = quiz_collection.count_documents({})
+        total_flashcards = flashcard_collection.count_documents({})
+        
+        # Calculate average rating
+        pipeline = [
+            {
+                "$group": {
+                    "_id": None,
+                    "avg_rating": {"$avg": "$rating"},
+                    "total_feedback": {"$sum": 1}
+                }
+            }
+        ]
+        
+        rating_result = list(feedback_collection.aggregate(pipeline))
+        avg_rating = rating_result[0]["avg_rating"] if rating_result else 0
+        
+        # Get 5 most recent feedback entries
+        recent_feedback = list(
+            feedback_collection.find({})
+            .sort("created_at", -1)
+            .limit(5)
+        )
+        
+        # Format recent feedback for response
+        formatted_feedback = []
+        for fb in recent_feedback:
+            formatted_feedback.append({
+                "type": fb["type"],
+                "rating": fb["rating"],
+                "comment": fb.get("comment", ""),
+                "created_at": fb["created_at"].isoformat()
+            })
+        
+        return jsonify({
+            "total_quizzes": total_quizzes,
+            "total_flashcards": total_flashcards,
+            "avg_rating": round(avg_rating, 1) if avg_rating else 0,
+            "recent_feedback": formatted_feedback
+        }), 200
+        
+    except Exception as e:
+        return jsonify({"error": f"Error fetching stats: {str(e)}"}), 500
 
 @app.route('/')
 def index():
