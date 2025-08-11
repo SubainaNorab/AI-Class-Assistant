@@ -1,4 +1,4 @@
-// Frontend/src/App.js
+// src/App.js
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import FlashcardTestPage from './FlashcardTestPage';
@@ -8,7 +8,7 @@ import './App.css';
 // Navigation Component
 const Navigation = () => {
   const location = useLocation();
-  
+
   return (
     <nav className="navigation">
       <div className="nav-container">
@@ -16,14 +16,14 @@ const Navigation = () => {
           <h2>🎓 AI Class Assistant</h2>
         </div>
         <div className="nav-links">
-          <Link 
-            to="/" 
+          <Link
+            to="/"
             className={`nav-link ${location.pathname === '/' ? 'active' : ''}`}
           >
             🎯 Flashcards
           </Link>
-          <Link 
-            to="/stats" 
+          <Link
+            to="/stats"
             className={`nav-link ${location.pathname === '/stats' ? 'active' : ''}`}
           >
             📊 Statistics
@@ -53,4 +53,4 @@ function App() {
   );
 }
 
-export default App;
+export default App; // ✅ VERY IMPORTANT
