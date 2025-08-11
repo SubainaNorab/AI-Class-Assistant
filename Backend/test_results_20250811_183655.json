@@ -1,0 +1,17 @@
+{
+  "timestamp": "2025-08-11T18:36:55.126548",
+  "base_url": "http://localhost:5000",
+  "test_results": [
+    {
+      "test": "Quiz Generation (Setup)",
+      "success": false,
+      "details": "('Connection aborted.', ConnectionResetError(10054, 'An existing connection was forcibly closed by the remote host', None, 10054, None))",
+      "timestamp": "2025-08-11T18:36:55.123632"
+    }
+  ],
+  "summary": {
+    "total": 1,
+    "passed": 0,
+    "failed": 1
+  }
+}
