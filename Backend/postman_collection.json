@@ -1,0 +1,504 @@
+{
+	"info": {
+		"_postman_id": "ai-class-assistant-day7",
+		"name": "AI Class Assistant - Day 7 Enhanced API",
+		"description": "Complete API collection for testing Day 7 backend enhancements including pagination, filtering, search, and progress tracking",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Quiz Endpoints",
+			"item": [
+				{
+					"name": "Get All Quizzes (Basic)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/quiz",
+							"host": ["{{base_url}}"],
+							"path": ["quiz"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Quizzes with Pagination",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/quiz?page=1&limit=5",
+							"host": ["{{base_url}}"],
+							"path": ["quiz"],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "limit",
+									"value": "5"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Search Quizzes by Keyword",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/quiz?search=machine learning",
+							"host": ["{{base_url}}"],
+							"path": ["quiz"],
+							"query": [
+								{
+									"key": "search",
+									"value": "machine learning"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Filter Quizzes by Lecture",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/quiz?lecture=AI Fundamentals",
+							"host": ["{{base_url}}"],
+							"path": ["quiz"],
+							"query": [
+								{
+									"key": "lecture",
+									"value": "AI Fundamentals"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Filter Quizzes by Date",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/quiz?date=2024-08-11",
+							"host": ["{{base_url}}"],
+							"path": ["quiz"],
+							"query": [
+								{
+									"key": "date",
+									"value": "2024-08-11"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Combined Filters & Search",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/quiz?search=neural&lecture=Deep Learning&page=1&limit=3",
+							"host": ["{{base_url}}"],
+							"path": ["quiz"],
+							"query": [
+								{
+									"key": "search",
+									"value": "neural"
+								},
+								{
+									"key": "lecture",
+									"value": "Deep Learning"
+								},
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "limit",
+									"value": "3"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Generate Quiz (Existing)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"summary\": \"Machine learning is a subset of artificial intelligence that focuses on algorithms that can learn from data. Neural networks are computational models inspired by biological neural networks.\",\n  \"lecture_title\": \"ML Fundamentals\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/generate-quiz",
+							"host": ["{{base_url}}"],
+							"path": ["generate-quiz"]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Flashcard Endpoints",
+			"item": [
+				{
+					"name": "Get All Flashcards (Basic)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/flashcards",
+							"host": ["{{base_url}}"],
+							"path": ["flashcards"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Flashcards with Pagination",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/flashcards?page=2&limit=10",
+							"host": ["{{base_url}}"],
+							"path": ["flashcards"],
+							"query": [
+								{
+									"key": "page",
+									"value": "2"
+								},
+								{
+									"key": "limit",
+									"value": "10"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Search Flashcards by Content",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/flashcards?search=algorithm",
+							"host": ["{{base_url}}"],
+							"path": ["flashcards"],
+							"query": [
+								{
+									"key": "search",
+									"value": "algorithm"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Filter Flashcards by Lecture",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/flashcards?lecture=Data Structures",
+							"host": ["{{base_url}}"],
+							"path": ["flashcards"],
+							"query": [
+								{
+									"key": "lecture",
+									"value": "Data Structures"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Filter Flashcards by Date",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/flashcards?date=2024-08-11",
+							"host": ["{{base_url}}"],
+							"path": ["flashcards"],
+							"query": [
+								{
+									"key": "date",
+									"value": "2024-08-11"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Progress Tracking",
+			"item": [
+				{
+					"name": "Get User Progress",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/progress",
+							"host": ["{{base_url}}"],
+							"path": ["progress"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Progress for Specific User",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/progress?user_id=user123",
+							"host": ["{{base_url}}"],
+							"path": ["progress"],
+							"query": [
+								{
+									"key": "user_id",
+									"value": "user123"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Feedback & Stats",
+			"item": [
+				{
+					"name": "Submit Feedback",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"type\": \"quiz\",\n  \"item_id\": \"64f123456789abcdef123456\",\n  \"rating\": 5,\n  \"comment\": \"Great quiz! Very helpful for learning.\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/feedback",
+							"host": ["{{base_url}}"],
+							"path": ["feedback"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Stats (Legacy)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/stats",
+							"host": ["{{base_url}}"],
+							"path": ["stats"]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Error Testing",
+			"item": [
+				{
+					"name": "Invalid Date Format",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/quiz?date=invalid-date",
+							"host": ["{{base_url}}"],
+							"path": ["quiz"],
+							"query": [
+								{
+									"key": "date",
+									"value": "invalid-date"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Invalid Pagination Parameters",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/quiz?page=-1&limit=0",
+							"host": ["{{base_url}}"],
+							"path": ["quiz"],
+							"query": [
+								{
+									"key": "page",
+									"value": "-1"
+								},
+								{
+									"key": "limit",
+									"value": "0"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Missing Required Fields in Feedback",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"type\": \"quiz\",\n  \"comment\": \"Missing item_id and rating\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/feedback",
+							"host": ["{{base_url}}"],
+							"path": ["feedback"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Invalid Rating Value",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"type\": \"quiz\",\n  \"item_id\": \"64f123456789abcdef123456\",\n  \"rating\": 10,\n  \"comment\": \"Rating should be 1-5\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/feedback",
+							"host": ["{{base_url}}"],
+							"path": ["feedback"]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Existing Endpoints",
+			"item": [
+				{
+					"name": "Upload File",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "file",
+									"type": "file",
+									"src": "path/to/your/file.pdf"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/upload",
+							"host": ["{{base_url}}"],
+							"path": ["upload"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Summarize Text",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"text\": \"Your long text content here that needs to be summarized...\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/summarize",
+							"host": ["{{base_url}}"],
+							"path": ["summarize"]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:5000",
+			"type": "string"
+		}
+	]
+}
