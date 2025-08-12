@@ -3,7 +3,7 @@ import json
 import re
 
 # === TOGETHER AI SETUP ===
-together.api_key = "9b5fdbfe6e161ca597bbdcda5d7892b41dce8932d1ce02a2504b0cbd5f9bd400"
+together.api_key = ""
 LLM_MODEL = "mistralai/Mixtral-8x7B-Instruct-v0.1"
 
 # === Prompt Builder ===
