@@ -3,7 +3,7 @@ import json
 import re
 
 # === TOGETHER AI SETUP ===
-together.api_key = "api"
+together.api_key = "9b5fdbfe6e161ca597bbdcda5d7892b41dce8932d1ce02a2504b0cbd5f9bd400"
 LLM_MODEL = "mistralai/Mixtral-8x7B-Instruct-v0.1"
 
 # === Prompt Builder ===
@@ -32,16 +32,40 @@ Format:
 }}
 Only return the JSON content.
 """
+def clean_json_string(json_str):
+    # Replace fancy quotes with normal quotes
+    json_str = json_str.replace("“", '"').replace("”", '"').replace("‘", "'").replace("’", "'")
+    # Remove trailing commas before closing braces/brackets
+    json_str = re.sub(r",\s*([\]}])", r"\1", json_str)
+    # Remove newlines/tabs that might break parsing
+    json_str = re.sub(r"[\n\t]", " ", json_str)
+    # Optional: strip extra spaces
+    json_str = json_str.strip()
+    return json_str
 
 # === Extract JSON String from Output ===
-def extract_json_string(output):
+def extract_quiz_and_flashcards(output):
     try:
-        match = re.search(r"```(?:json)?\s*([\s\S]*?)```", output)
-        if match:
-            return match.group(1)
-        return output.strip()
-    except Exception:
-        return output.strip()
+        quiz_match = re.search(r"Quiz:\s*(\[[\s\S]*?\])", output, re.IGNORECASE)
+        flashcards_match = re.search(r"Flashcards:\s*(\[[\s\S]*?\])", output, re.IGNORECASE)
+
+        if not quiz_match or not flashcards_match:
+            raise ValueError("Could not parse Quiz or Flashcards arrays")
+
+        quiz_json = clean_json_string(quiz_match.group(1))
+        flashcards_json = clean_json_string(flashcards_match.group(1))
+
+        quiz = json.loads(quiz_json)
+        flashcards = json.loads(flashcards_json)
+
+        return {"quiz": quiz, "flashcards": flashcards}
+
+    except Exception as e:
+        print(f"❌ JSON extraction/parsing error: {e}")
+        return {"error": "Unexpected AI response format"}
+
+
+
 
 # === Call LLM and Return Parsed JSON ===
 def call_ai_model(prompt):
@@ -57,20 +81,14 @@ def call_ai_model(prompt):
         raw_output = response.get("output") or response.get("choices", [{}])[0].get("text", "")
         print("🔹 Raw LLM Output:\n", raw_output)
 
-        json_string = extract_json_string(raw_output)
-        json_string = json_string.replace("“", '"').replace("”", '"').replace("‘", "'").replace("’", "'")
-        json_string = re.sub(r",\s*([\]}])", r"\1", json_string).strip()
-
-        return json.loads(json_string)
-
-    except json.JSONDecodeError as e:
-        print("❌ JSON Decode Error:", e)
-        print("✂️ Raw extracted string:", json_string)
-        return {"error": "Unexpected AI response format"}
+        # Use new extractor function
+        parsed_result = extract_quiz_and_flashcards(raw_output)
+        return parsed_result
 
     except Exception as e:
         print("❌ Model call error:", e)
         return {"error": f"Unexpected error: {str(e)}"}
+
 
 # === Final Exported Function ===
 def generate_quiz_and_flashcards(summary):

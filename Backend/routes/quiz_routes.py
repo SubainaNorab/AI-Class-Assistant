@@ -9,10 +9,25 @@ router = APIRouter()
 class SummaryInput(BaseModel):
     lecture_title: str
     summary: str
+    difficulty: str = "Medium"  
+    topic_tags: list = []       
+    time_taken: int = 0         
 
 @router.post("/generate-quiz-from-summary/")
 async def generate_quiz_from_summary(data: SummaryInput):
     try:
+        # ✅ Backend validation
+        allowed_difficulties = ["Easy", "Medium", "Hard"]
+        if data.difficulty not in allowed_difficulties:
+            raise HTTPException(status_code=400, detail="Invalid difficulty. Allowed values: Easy, Medium, Hard.")
+
+        if not isinstance(data.topic_tags, list) or not all(isinstance(tag, str) for tag in data.topic_tags):
+            raise HTTPException(status_code=400, detail="topic_tags must be a list of strings.")
+
+        if not isinstance(data.time_taken, (int, float)) or data.time_taken < 0:
+            raise HTTPException(status_code=400, detail="time_taken must be a positive number.")
+
+        # Build prompt & call AI model
         prompt = build_prompt(data.summary)
         result = call_ai_model(prompt)
 
@@ -21,19 +36,22 @@ async def generate_quiz_from_summary(data: SummaryInput):
 
         created_at = datetime.utcnow()
 
-        # Quiz
+        # ✅ Quiz documents with metadata
         quiz_docs = [
             {
                 "lecture_title": data.lecture_title,
                 "question": q["question"],
                 "options": q["options"],
                 "answer": q["answer"],
+                "difficulty": data.difficulty,      
+                "topic_tags": data.topic_tags,      
+                "time_taken": data.time_taken,       
                 "created_at": created_at
             }
             for q in result.get("quiz", [])
         ]
 
-        # Flashcards
+        # ✅ Flashcards remain the same
         flashcard_docs = [
             {
                 "lecture_title": data.lecture_title,
@@ -55,5 +73,37 @@ async def generate_quiz_from_summary(data: SummaryInput):
             "flashcard_count": len(flashcard_docs)
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error generating quiz: {str(e)}")
+
+@router.get("/quizzes/")
+async def get_quizzes():
+    try:
+        quizzes = quiz_collection.find()
+        result = []
+        for q in quizzes:
+            result.append({
+                "lecture_title": q.get("lecture_title"),
+                "question": q.get("question"),
+                "options": q.get("options"),
+                "answer": q.get("answer"),
+                "difficulty": q.get("difficulty", "Medium"),  # default if missing
+                "topic_tags": q.get("topic_tags", []),         # default if missing
+                "time_taken": q.get("time_taken", 0),          # default if missing
+                "created_at": q.get("created_at")
+            })
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching quizzes: {str(e)}")
+
+from flask import Blueprint, jsonify
+from database import flashcard_collection
+
+flashcard_bp = Blueprint('flashcard_bp', __name__)
+
+@flashcard_bp.route("/get-flashcards", methods=["GET"])
+def get_flashcards():
+    flashcards = list(flashcard_collection.find({}, {"_id": 0}))
+    return jsonify(flashcards)

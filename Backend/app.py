@@ -7,12 +7,17 @@ from utils.quiz_generator import build_prompt, call_ai_model
 from utils.pdf_reader import extract_text_from_pdf
 from werkzeug.utils import secure_filename
 from datetime import datetime, timezone
+from routes.quiz_routes import  get_flashcards
 from database import quiz_collection, flashcard_collection, db
 import os
 import math
 from bson import ObjectId
+from flask import Flask
+from routes.quiz_routes import flashcard_bp
 
 app = Flask(__name__)
+app.register_blueprint(flashcard_bp)
+
 CORS(app)
 
 # Create feedback collection
@@ -170,7 +175,7 @@ def generate_quiz():
 
 # ===== NEW DAY 7 ENHANCED ENDPOINTS =====
 
-@app.route('/quiz', methods=['GET'])
+@app.route('/get-quiz', methods=['GET'])
 def get_quizzes():
     """Enhanced Quiz API with pagination, filtering, and search"""
     try:
@@ -568,6 +573,14 @@ def index():
             "stats": "/stats - Basic statistics"
         }
     })
+
+
+# to get quizzes
+
+@app.route("/get-quiz", methods=["GET"])
+def get_quiz():
+    quizzes = list(quiz_collection.find({}, {"_id": 0}))  # hide MongoDB _id
+    return jsonify(quizzes)
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
