@@ -33,36 +33,59 @@ Format:
 Only return the JSON content.
 """
 def clean_json_string(json_str):
-    # Replace fancy quotes with normal quotes
     json_str = json_str.replace("“", '"').replace("”", '"').replace("‘", "'").replace("’", "'")
-    # Remove trailing commas before closing braces/brackets
-    json_str = re.sub(r",\s*([\]}])", r"\1", json_str)
-    # Remove newlines/tabs that might break parsing
-    json_str = re.sub(r"[\n\t]", " ", json_str)
-    # Optional: strip extra spaces
+    json_str = re.sub(r",\s*([\\]}])", r"\1", json_str)
+    json_str = json_str.replace("\n", " ").replace("\t", " ")
+    json_str = re.sub(r"\s+", " ", json_str)  # Collapse multiple spaces into one
     json_str = json_str.strip()
     return json_str
 
-# === Extract JSON String from Output ===
+
+
+
+def extract_section(label, output):
+    pattern = rf"{label}:\s*(.*?)(?=Quiz:|Flashcards:|$)"
+    match = re.search(pattern, output, re.IGNORECASE | re.DOTALL)
+    if match:
+        section = match.group(1)
+        print(f"Extracted section for {label}:", repr(section))
+        section = re.sub(r"^```json\s*|\s*```$", "", section, flags=re.IGNORECASE).strip()
+        print(f"Cleaned extracted section for {label}:", repr(section))
+        return section
+    return None
+
+
+def parse_json_array(json_str):
+    """
+    Parse a JSON array string after cleaning. Return None if parsing fails.
+    """
+    try:
+        cleaned = clean_json_string(json_str)
+        return json.loads(cleaned)
+    except Exception:
+        return None
+
 def extract_quiz_and_flashcards(output):
     try:
-        quiz_match = re.search(r"Quiz:\s*(\[[\s\S]*?\])", output, re.IGNORECASE)
-        flashcards_match = re.search(r"Flashcards:\s*(\[[\s\S]*?\])", output, re.IGNORECASE)
+        quiz_section = extract_section("Quiz", output)
+        flashcards_section = extract_section("Flashcards", output)
 
-        if not quiz_match or not flashcards_match:
-            raise ValueError("Could not parse Quiz or Flashcards arrays")
+        if not quiz_section or not flashcards_section:
+            raise ValueError("Could not find Quiz or Flashcards sections in output")
 
-        quiz_json = clean_json_string(quiz_match.group(1))
-        flashcards_json = clean_json_string(flashcards_match.group(1))
+        quiz = parse_json_array(quiz_section)
+        flashcards = parse_json_array(flashcards_section)
 
-        quiz = json.loads(quiz_json)
-        flashcards = json.loads(flashcards_json)
+        if quiz is None or flashcards is None:
+            raise ValueError("Failed to parse Quiz or Flashcards JSON")
 
         return {"quiz": quiz, "flashcards": flashcards}
 
     except Exception as e:
         print(f"❌ JSON extraction/parsing error: {e}")
+        print("Raw output was:", output)
         return {"error": "Unexpected AI response format"}
+
 
 
 
@@ -77,17 +100,40 @@ def call_ai_model(prompt):
             temperature=0.7,
             stop=["</s>"]
         )
+        print("Response type:", type(response))
+        print("Response content:", repr(response))
 
-        raw_output = response.get("output") or response.get("choices", [{}])[0].get("text", "")
+        if isinstance(response, dict):
+            if "output" in response:
+                raw_output = response["output"]
+            elif "choices" in response and len(response["choices"]) > 0:
+                first_choice = response["choices"][0]
+                if isinstance(first_choice, dict):
+                    raw_output = first_choice.get("text", "")
+                else:
+                    raw_output = str(first_choice)
+            else:
+                raw_output = ""
+        elif isinstance(response, str):
+            raw_output = response
+        else:
+            raw_output = str(response)
+
         print("🔹 Raw LLM Output:\n", raw_output)
 
-        # Use new extractor function
         parsed_result = extract_quiz_and_flashcards(raw_output)
         return parsed_result
 
     except Exception as e:
         print("❌ Model call error:", e)
+        import traceback
+        traceback.print_exc()
         return {"error": f"Unexpected error: {str(e)}"}
+
+
+
+
+
 
 
 # === Final Exported Function ===
