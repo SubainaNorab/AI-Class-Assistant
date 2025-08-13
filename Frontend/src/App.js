@@ -1,7 +1,8 @@
-// src/App.js
+// Frontend/src/App.js
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import FlashcardTestPage from './FlashcardTestPage';
+import QuizListPage from './QuizListPage'; 
 import StatsPage from './components/StatsPage';
 import './App.css';
 
@@ -23,6 +24,12 @@ const Navigation = () => {
             🎯 Flashcards
           </Link>
           <Link
+            to="/quiz"
+            className={`nav-link ${location.pathname === '/quiz' ? 'active' : ''}`}
+          >
+            📝 Quizzes
+          </Link>
+          <Link
             to="/stats"
             className={`nav-link ${location.pathname === '/stats' ? 'active' : ''}`}
           >
@@ -42,6 +49,7 @@ function App() {
         <main className="main-content">
           <Routes>
             <Route path="/" element={<FlashcardTestPage />} />
+            <Route path="/quiz" element={<QuizListPage />} />
             <Route path="/stats" element={<StatsPage />} />
           </Routes>
         </main>
@@ -53,4 +61,4 @@ function App() {
   );
 }
 
-export default App; // ✅ VERY IMPORTANT
+export default App;
