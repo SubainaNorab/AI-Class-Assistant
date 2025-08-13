@@ -3,6 +3,9 @@ from pydantic import BaseModel
 from utils.quiz_generator import build_prompt, call_ai_model
 from database import quiz_collection, flashcard_collection
 from datetime import datetime
+from flask import Blueprint, request, jsonify
+from database import flashcard_collection
+from werkzeug.exceptions import BadRequest
 
 router = APIRouter()
 
@@ -107,3 +110,31 @@ flashcard_bp = Blueprint('flashcard_bp', __name__)
 def get_flashcards():
     flashcards = list(flashcard_collection.find({}, {"_id": 0}))
     return jsonify(flashcards)
+
+@flashcard_bp.route("/flashcards/", methods=["POST"])
+def create_flashcard():
+    try:
+        data = request.get_json()
+
+        # Validate fields
+        if not data.get("lecture_title") or not data.get("question") or not data.get("answer"):
+            return jsonify({"error": "lecture_title, question, and answer are required"}), 400
+
+        flashcard_doc = {
+            "lecture_title": data["lecture_title"],
+            "question": data["question"],
+            "answer": data["answer"],
+            "difficulty": data.get("difficulty", "Medium"),
+            "topic_tags": data.get("topic_tags", []),
+            "time_taken": data.get("time_taken", 0),
+            "created_at": datetime.utcnow()
+        }
+        result = flashcard_collection.insert_one(flashcard_doc)
+        print("Inserted ID:", result.inserted_id)
+        print("DB Name:", flashcard_collection.database.name)
+        print("Collection Name:", flashcard_collection.name)
+
+        # flashcard_collection.insert_one(flashcard_doc)
+        return jsonify({"message": "Flashcard created successfully"}), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
