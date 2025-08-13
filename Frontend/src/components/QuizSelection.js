@@ -23,7 +23,7 @@ const QuizSelection = ({ onQuizSelect }) => {
   const fetchQuizzes = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('http://localhost:5000/get-quiz');
+      const response = await axios.get('http://localhost:5000/quiz');
       
       // Process the quiz data
       const processedQuizzes = response.data.map(quiz => ({
