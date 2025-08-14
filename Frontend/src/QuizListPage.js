@@ -28,43 +28,87 @@ const QuizListPage = () => {
   }, []);
 
   const fetchQuizzes = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await quizService.getQuizzes(filters);
+  try {
+    setLoading(true);
+    setError(null);
+    
+    console.log('Fetching quizzes with filters:', filters);
+    
+    const data = await quizService.getQuizzes(filters);
+    console.log('Raw API response:', data);
 
-      const processedQuizzes = (data?.quizzes || data || []).map(quiz => ({
+    // Handle different response formats
+    let quizzesArray = [];
+    if (data.quizzes && Array.isArray(data.quizzes)) {
+      quizzesArray = data.quizzes;
+    } else if (Array.isArray(data)) {
+      quizzesArray = data;
+    } else {
+      console.warn('Unexpected data format:', data);
+      quizzesArray = [];
+    }
+
+    console.log(`Processing ${quizzesArray.length} quizzes`);
+
+    // Process and validate quizzes
+    const processedQuizzes = quizzesArray
+      .filter(quiz => {
+        // Filter out invalid quizzes
+        const isValid = quiz && 
+          quiz.question && 
+          quiz.question.trim() !== '' &&
+          Array.isArray(quiz.options) && 
+          quiz.options.length > 0 &&
+          quiz.answer && 
+          quiz.answer.trim() !== '';
+        
+        if (!isValid) {
+          console.warn('Filtering out invalid quiz:', quiz);
+        }
+        
+        return isValid;
+      })
+      .map(quiz => ({
         ...quiz,
         difficulty: quiz?.difficulty || 'Medium',
         topic_tags: Array.isArray(quiz?.topic_tags) ? quiz.topic_tags : [],
         time_taken: quiz?.time_taken || 0,
-        question: quiz?.question || '', // ensure string
+        question: quiz?.question?.trim() || '',
         options: Array.isArray(quiz?.options) ? quiz.options : [],
+        answer: quiz?.answer?.trim() || '',
+        lecture_title: quiz?.lecture_title || 'Untitled',
         id: quiz?._id || Math.random().toString(36)
       }));
 
-      setQuizzes(processedQuizzes);
+    console.log(`Final processed quizzes: ${processedQuizzes.length}`);
+    console.log('Sample quiz:', processedQuizzes[0]);
 
-      const allTags = new Set();
-      const allLectures = new Set();
+    setQuizzes(processedQuizzes);
 
-      processedQuizzes.forEach(quiz => {
+    // Extract unique values for filters
+    const allTags = new Set();
+    const allLectures = new Set();
+
+    processedQuizzes.forEach(quiz => {
+      if (Array.isArray(quiz.topic_tags)) {
         quiz.topic_tags.forEach(tag => allTags.add(tag));
-        if (quiz.lecture_title) {
-          allLectures.add(quiz.lecture_title);
-        }
-      });
+      }
+      if (quiz.lecture_title) {
+        allLectures.add(quiz.lecture_title);
+      }
+    });
 
-      setAvailableTags(Array.from(allTags));
-      setAvailableLectures(Array.from(allLectures));
-    } catch (err) {
-      console.error('Error fetching quizzes:', err);
-      setError('Failed to load quizzes. Please try again.');
-      addToast('Failed to load quizzes', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
+    setAvailableTags(Array.from(allTags));
+    setAvailableLectures(Array.from(allLectures));
+    
+  } catch (err) {
+    console.error('Error fetching quizzes:', err);
+    setError('Failed to load quizzes. Please try again.');
+    addToast('Failed to load quizzes', 'error');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const getFilteredQuizzes = () => {
     return quizzes.filter(quiz => {
