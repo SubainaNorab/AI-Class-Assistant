@@ -258,6 +258,23 @@ def get_stats():
         
     except Exception as e:
         return jsonify({"error": f"Error fetching stats: {str(e)}"}), 500
+@app.route('/progress/<quiz_id>', methods=['GET'])
+def get_quiz_progress(quiz_id):
+    try:
+        quiz = quiz_collection.find_one({"_id": ObjectId(quiz_id)})
+        if not quiz:
+            return jsonify({"error": "Quiz not found"}), 404
+        
+        # Example: Return completion percentage
+        progress_data = {
+            "quiz_id": quiz_id,
+            "lecture_title": quiz.get("lecture_title", ""),
+            "difficulty": quiz.get("difficulty", ""),
+            "completed": False  # Placeholder until you track it
+        }
+        return jsonify(progress_data), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/')
 def index():
