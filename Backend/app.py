@@ -159,57 +159,109 @@ def submit_feedback():
     except Exception as e:
         return jsonify({'error': f'Failed to submit feedback: {str(e)}'}), 500
 
+# Backend/app.py - Update the progress route
 @app.route('/progress', methods=['GET'])
 def get_progress():
-    """Get learning progress statistics"""
     try:
-        # Get counts
+        from datetime import timedelta
+        
+        # Get total counts
         total_quizzes = quiz_collection.count_documents({})
         total_flashcards = flashcard_collection.count_documents({})
         
-        # Get quiz statistics by lecture
-        pipeline = [
+        # Get recent activity (last 30 days)
+        thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+        
+        # Quiz performance over time
+        quiz_pipeline = [
+            {"$match": {"created_at": {"$gte": thirty_days_ago}}},
             {
                 "$group": {
-                    "_id": "$lecture_title",
-                    "count": {"$sum": 1},
-                    "avg_difficulty": {
-                        "$avg": {
-                            "$switch": {
-                                "branches": [
-                                    {"case": {"$eq": ["$difficulty", "Easy"]}, "then": 1},
-                                    {"case": {"$eq": ["$difficulty", "Medium"]}, "then": 2},
-                                    {"case": {"$eq": ["$difficulty", "Hard"]}, "then": 3}
-                                ],
-                                "default": 2
-                            }
+                    "_id": {
+                        "$dateToString": {
+                            "format": "%Y-%m-%d",
+                            "date": "$created_at"
                         }
-                    }
+                    },
+                    "count": {"$sum": 1}
                 }
             },
-            {"$sort": {"count": -1}}
+            {"$sort": {"_id": 1}}
         ]
         
-        quizzes_by_lecture = list(quiz_collection.aggregate(pipeline))
+        quiz_activity = list(quiz_collection.aggregate(quiz_pipeline))
         
-        # Format the response
-        formatted_lectures = []
-        for item in quizzes_by_lecture:
-            formatted_lectures.append({
-                "lecture": item["_id"] or "Uncategorized",
-                "quiz_count": item["count"],
-                "avg_difficulty": round(item.get("avg_difficulty", 2), 1)
+        # Flashcard activity
+        flashcard_pipeline = [
+            {"$match": {"created_at": {"$gte": thirty_days_ago}}},
+            {
+                "$group": {
+                    "_id": {
+                        "$dateToString": {
+                            "format": "%Y-%m-%d", 
+                            "date": "$created_at"
+                        }
+                    },
+                    "count": {"$sum": 1}
+                }
+            },
+            {"$sort": {"_id": 1}}
+        ]
+        
+        flashcard_activity = list(flashcard_collection.aggregate(flashcard_pipeline))
+        
+        # Difficulty breakdown
+        difficulty_pipeline = [
+            {
+                "$group": {
+                    "_id": "$difficulty",
+                    "count": {"$sum": 1}
+                }
+            }
+        ]
+        
+        difficulty_breakdown = list(quiz_collection.aggregate(difficulty_pipeline))
+        
+        # Format performance data for charts
+        performance_data = []
+        for item in quiz_activity:
+            performance_data.append({
+                "date": item["_id"],
+                "quizzes": item["count"],
+                "flashcards": 0  # Initialize
             })
+        
+        # Add flashcard data
+        for item in flashcard_activity:
+            found = False
+            for perf in performance_data:
+                if perf["date"] == item["_id"]:
+                    perf["flashcards"] = item["count"]
+                    found = True
+                    break
+            if not found:
+                performance_data.append({
+                    "date": item["_id"],
+                    "quizzes": 0,
+                    "flashcards": item["count"]
+                })
+        
+        # Sort by date
+        performance_data.sort(key=lambda x: x["date"])
         
         return jsonify({
             "total_quizzes": total_quizzes,
             "total_flashcards": total_flashcards,
-            "quizzes_by_lecture": formatted_lectures,
-            "last_updated": datetime.utcnow().isoformat()
+            "performance_data": performance_data,
+            "difficulty_breakdown": difficulty_breakdown,
+            "success": True
         }), 200
         
     except Exception as e:
-        return jsonify({"error": f"Error fetching progress: {str(e)}"}), 500
+        return jsonify({
+            "error": f"Failed to fetch progress data: {str(e)}",
+            "success": False
+        }), 500
 
 @app.route('/stats', methods=['GET'])
 def get_stats():
@@ -347,6 +399,53 @@ def get_flashcards():
         
     except Exception as e:
         return jsonify({'error': f'Failed to fetch flashcards: {str(e)}'}), 500
+
+@app.route('/generate-quiz', methods=['POST'])
+def generate_quiz_content():
+    try:
+        data = request.get_json()
+        summary = data.get("summary", "Generate a comprehensive quiz")
+        difficulty = data.get("difficulty", "Medium")
+        lecture_title = data.get("lecture_title", "Generated Quiz")
+        topic_tags = data.get("topic_tags", [])
+        
+        if isinstance(topic_tags, str):
+            topic_tags = [tag.strip() for tag in topic_tags.split(',') if tag.strip()]
+        
+        # Generate quiz using your AI model
+        from utils.quiz_generator import generate_quiz
+        quiz_questions = generate_quiz(summary)
+        
+        if not quiz_questions:
+            return jsonify({"error": "Quiz generation failed"}), 500
+        
+        # Save to database
+        created_at = datetime.utcnow()
+        quiz_docs = []
+        
+        for q in quiz_questions:
+            quiz_docs.append({
+                "lecture_title": lecture_title,
+                "question": q.get("question", ""),
+                "options": q.get("options", []),
+                "answer": q.get("answer", ""),
+                "difficulty": difficulty,
+                "topic_tags": topic_tags,
+                "created_at": created_at
+            })
+        
+        # Insert into database
+        if quiz_docs:
+            quiz_collection.insert_many(quiz_docs)
+        
+        return jsonify({
+            "message": "Quiz generated successfully",
+            "quiz_count": len(quiz_docs),
+            "quizzes": quiz_docs
+        }), 200
+        
+    except Exception as e:
+        return jsonify({"error": f"Failed to generate quiz: {str(e)}"}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

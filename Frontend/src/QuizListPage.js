@@ -134,29 +134,43 @@ const QuizListPage = () => {
     return `${minutes}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handleGenerateQuiz = async (formData) => {
-    try {
-      setLoading(true);
-      const quizData = {
-        summary: formData.summary,
-        lecture_title: formData.lecture_title,
+const handleGenerateQuiz = async (formData) => {
+  try {
+    setLoading(true);
+    
+    const response = await fetch('http://localhost:5000/generate-quiz', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        summary: `Generate quiz for ${formData.lecture_title}`,
         difficulty: formData.difficulty,
+        lecture_title: formData.lecture_title,
         topic_tags: formData.topic_tags
-          .split(',')
-          .map(tag => tag.trim())
-          .filter(tag => tag)
-      };
-      await quizService.generateQuiz(quizData);
-      addToast('Quiz generated successfully!', 'success');
+      })
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
       setShowGenerateModal(false);
-      fetchQuizzes();
-    } catch (error) {
-      console.error('Error generating quiz:', error);
-      addToast('Failed to generate quiz', 'error');
-    } finally {
-      setLoading(false);
+      
+      // Refresh the quiz list
+      await fetchQuizzes();
+      
+      // Show success message
+      alert(`Quiz generated successfully! ${data.quiz_count} questions created.`);
+    } else {
+      const errorData = await response.json();
+      alert(`Error: ${errorData.error}`);
     }
-  };
+  } catch (error) {
+    console.error('Error generating quiz:', error);
+    alert('Failed to generate quiz');
+  } finally {
+    setLoading(false);
+  }
+};
 
   if (selectedQuiz) {
     return (
