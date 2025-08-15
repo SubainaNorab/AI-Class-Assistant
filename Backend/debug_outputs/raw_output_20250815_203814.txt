@@ -1,0 +1,33 @@
+{
+  "quiz": [
+    {
+      "question": "What does backend development focus on?",
+      "options": ["User interface", "Behind-the-scenes functionality", "Data storage", "Server operations"],
+      "answer": "Behind-the-scenes functionality"
+    },
+    {
+      "question": "Which of the following does backend development handle?",
+      "options": ["Logic", "User interaction", "Visual design", "Database management"],
+      "answer": "Logic"
+    },
+    {
+      "question": "What is the main difference between front-end and backend development?",
+      "options": ["Front-end deals with user interface, backend deals with logic and data storage", "Front-end deals with logic and data storage, backend deals with user interface", "Front-end and backend both deal with user interface", "Front-end and backend both deal with logic and data storage"],
+      "answer": "Front-end deals with user interface, backend deals with logic and data storage"
+    }
+  ],
+  "flashcards": [
+    {
+      "question": "What is backend development?",
+      "answer": "Backend development, also known as server-side development, focuses on the behind-the-scenes functionality of websites and applications, including logic, data storage, and server operations."
+    },
+    {
+      "question": "What is the main difference between front-end and backend development?",
+      "answer": "Front-end development deals with the user interface and what users directly see and interact with, while backend development handles the logic, data storage, and server operations that enable an application to function."
+    },
+    {
+      "question": "Why is backend development important?",
+      "answer": "Backend development is important because it enables the functionality and data management of websites and applications, allowing them to operate smoothly and efficiently."
+    }
+  ]
+}

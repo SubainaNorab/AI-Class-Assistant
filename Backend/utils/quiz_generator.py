@@ -1,6 +1,8 @@
 ﻿import together
 import json
 import re
+import os
+from datetime import datetime
 
 # === TOGETHER AI SETUP ===
 together.api_key = ""
@@ -9,16 +11,26 @@ LLM_MODEL = "mistralai/Mixtral-8x7B-Instruct-v0.1"
 # === Prompt Builder ===
 def build_prompt(summary):
     return f"""
-Generate a quiz and flashcards from the following summary:
+You are a quiz generator. Based on the following summary, create EXACTLY 3 quiz questions and EXACTLY 3 flashcards.
 
 Summary:
 {summary}
 
-Format:
+Return ONLY JSON in this format:
 {{
   "quiz": [
     {{
       "question": "What is ...?",
+      "options": ["A", "B", "C", "D"],
+      "answer": "Correct option"
+    }},
+    {{
+      "question": "...",
+      "options": ["A", "B", "C", "D"],
+      "answer": "Correct option"
+    }},
+    {{
+      "question": "...",
       "options": ["A", "B", "C", "D"],
       "answer": "Correct option"
     }}
@@ -27,70 +39,27 @@ Format:
     {{
       "question": "...?",
       "answer": "..."
+    }},
+    {{
+      "question": "...?",
+      "answer": "..."
+    }},
+    {{
+      "question": "...?",
+      "answer": "..."
     }}
   ]
 }}
-Only return the JSON content.
+Do not add any text before or after the JSON.
 """
+
+# === JSON Cleaner ===
 def clean_json_string(json_str):
     json_str = json_str.replace("“", '"').replace("”", '"').replace("‘", "'").replace("’", "'")
-    json_str = re.sub(r",\s*([\\]}])", r"\1", json_str)
-    json_str = json_str.replace("\n", " ").replace("\t", " ")
-    json_str = re.sub(r"\s+", " ", json_str)  # Collapse multiple spaces into one
-    json_str = json_str.strip()
-    return json_str
+    json_str = re.sub(r",\s*([\]}])", r"\1", json_str)  # remove trailing commas
+    return json_str.strip()
 
-
-
-
-def extract_section(label, output):
-    pattern = rf"{label}:\s*(.*?)(?=Quiz:|Flashcards:|$)"
-    match = re.search(pattern, output, re.IGNORECASE | re.DOTALL)
-    if match:
-        section = match.group(1)
-        print(f"Extracted section for {label}:", repr(section))
-        section = re.sub(r"^```json\s*|\s*```$", "", section, flags=re.IGNORECASE).strip()
-        print(f"Cleaned extracted section for {label}:", repr(section))
-        return section
-    return None
-
-
-def parse_json_array(json_str):
-    """
-    Parse a JSON array string after cleaning. Return None if parsing fails.
-    """
-    try:
-        cleaned = clean_json_string(json_str)
-        return json.loads(cleaned)
-    except Exception:
-        return None
-
-def extract_quiz_and_flashcards(output):
-    try:
-        quiz_section = extract_section("Quiz", output)
-        flashcards_section = extract_section("Flashcards", output)
-
-        if not quiz_section or not flashcards_section:
-            raise ValueError("Could not find Quiz or Flashcards sections in output")
-
-        quiz = parse_json_array(quiz_section)
-        flashcards = parse_json_array(flashcards_section)
-
-        if quiz is None or flashcards is None:
-            raise ValueError("Failed to parse Quiz or Flashcards JSON")
-
-        return {"quiz": quiz, "flashcards": flashcards}
-
-    except Exception as e:
-        print(f"❌ JSON extraction/parsing error: {e}")
-        print("Raw output was:", output)
-        return {"error": "Unexpected AI response format"}
-
-
-
-
-
-# === Call LLM and Return Parsed JSON ===
+# === Model Call ===
 def call_ai_model(prompt):
     try:
         response = together.Complete.create(
@@ -100,48 +69,73 @@ def call_ai_model(prompt):
             temperature=0.7,
             stop=["</s>"]
         )
-        print("Response type:", type(response))
-        print("Response content:", repr(response))
 
-        if isinstance(response, dict):
-            if "output" in response:
-                raw_output = response["output"]
-            elif "choices" in response and len(response["choices"]) > 0:
-                first_choice = response["choices"][0]
-                if isinstance(first_choice, dict):
-                    raw_output = first_choice.get("text", "")
-                else:
-                    raw_output = str(first_choice)
-            else:
-                raw_output = ""
-        elif isinstance(response, str):
-            raw_output = response
+        # Extract text from API response
+        if isinstance(response, dict) and "choices" in response and len(response["choices"]) > 0:
+            raw_output = response["choices"][0].get("text", "").strip()
         else:
             raw_output = str(response)
 
-        print("🔹 Raw LLM Output:\n", raw_output)
+        # Save raw output for debugging
+        os.makedirs("debug_outputs", exist_ok=True)
+        filename = f"debug_outputs/raw_output_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+        with open(filename, "w", encoding="utf-8") as f:
+            f.write(raw_output)
 
-        parsed_result = extract_quiz_and_flashcards(raw_output)
-        return parsed_result
+        print(f"✅ Raw model output saved to {filename}")
+        print("🔹 Raw output preview:", raw_output[:200], "..." if len(raw_output) > 200 else "")
+        return raw_output
 
     except Exception as e:
         print("❌ Model call error:", e)
-        import traceback
-        traceback.print_exc()
-        return {"error": f"Unexpected error: {str(e)}"}
+        return ""
 
+# === Main Extraction ===
+def extract_quiz_and_flashcards(output):
+    try:
+        cleaned = clean_json_string(output)
+        parsed = json.loads(cleaned)
 
+        quiz = parsed.get("quiz", [])
+        flashcards = parsed.get("flashcards", [])
 
+        # Ensure they are lists, not strings
+        if isinstance(quiz, str):
+            try:
+                quiz = json.loads(quiz)
+            except json.JSONDecodeError:
+                quiz = []
+        if isinstance(flashcards, str):
+            try:
+                flashcards = json.loads(flashcards)
+            except json.JSONDecodeError:
+                flashcards = []
 
+        # Final validation
+        if not isinstance(quiz, list):
+            quiz = []
+        if not isinstance(flashcards, list):
+            flashcards = []
 
+        return {"quiz": quiz, "flashcards": flashcards}
 
+    except Exception as e:
+        print(f"❌ JSON parsing error: {e}")
+        return {"quiz": [], "flashcards": []}
 
-# === Final Exported Function ===
+# === Final Function ===
 def generate_quiz_and_flashcards(summary):
-    result = call_ai_model(build_prompt(summary))
-
-    if result and "quiz" in result and "flashcards" in result:
-        return result["quiz"], result["flashcards"]
-    else:
-        print("⚠️ Quiz or flashcards generation failed:", result)
+    print("📜 Summary received for quiz generation:", repr(summary))
+    if not summary or not summary.strip():
+        print("⚠️ Empty summary provided, cannot generate quiz.")
         return [], []
+
+    prompt = build_prompt(summary)
+    raw_output = call_ai_model(prompt)
+    result = extract_quiz_and_flashcards(raw_output)
+
+    quiz = result.get("quiz", [])
+    flashcards = result.get("flashcards", [])
+
+    print(f"📊 Generated {len(quiz)} quiz questions and {len(flashcards)} flashcards.")
+    return quiz, flashcards

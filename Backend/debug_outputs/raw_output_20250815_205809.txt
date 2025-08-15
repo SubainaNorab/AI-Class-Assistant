@@ -1,0 +1,33 @@
+{
+  "quiz": [
+    {
+      "question": "What does backend development focus on?",
+      "options": ["User interface", "Server operations and data storage", "Graphic design", "Marketing strategies"],
+      "answer": "Server operations and data storage"
+    },
+    {
+      "question": "Which of the following does backend development involve?",
+      "options": ["Database management", "Designing buttons and layouts", "Creating animations", "Managing social media accounts"],
+      "answer": "Database management"
+    },
+    {
+      "question": "What is the main difference between front-end and backend development?",
+      "options": ["Front-end deals with user interface, backend deals with server operations and data storage", "Front-end deals with server operations, backend deals with user interface", "Front-end and backend are the same thing", "Front-end deals with marketing strategies, backend deals with design"],
+      "answer": "Front-end deals with user interface, backend deals with server operations and data storage"
+    }
+  ],
+  "flashcards": [
+    {
+      "question": "What is backend development?",
+      "answer": "Backend development, also known as server-side development, focuses on the behind-the-scenes functionality of websites and applications, including logic, data storage, and server operations."
+    },
+    {
+      "question": "What is the main difference between front-end and backend development?",
+      "answer": "Front-end development deals with the user interface and what users directly see and interact with, while backend development handles the logic, data storage, and server operations that enable an application to function."
+    },
+    {
+      "question": "What does backend development involve?",
+      "answer": "Backend development involves database management, server operations, and application logic."
+    }
+  ]
+}

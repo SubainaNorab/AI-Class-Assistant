@@ -15,7 +15,6 @@ const QuizSelection = ({ onQuizSelect }) => {
   });
   const [availableTags, setAvailableTags] = useState([]);
 
-  // Fetch quizzes from backend
   useEffect(() => {
     fetchQuizzes();
   }, []);
@@ -24,65 +23,54 @@ const QuizSelection = ({ onQuizSelect }) => {
     try {
       setLoading(true);
       const response = await axios.get('http://localhost:5000/quiz');
-      
-      // Process the quiz data
-      const processedQuizzes = response.data.map(quiz => ({
+
+      // Ensure we always have an array
+      const rawData = Array.isArray(response.data)
+        ? response.data
+        : (response.data?.quizzes || []);
+
+      if (!Array.isArray(rawData)) {
+        throw new Error('Invalid quiz data format from server');
+      }
+
+      const processedQuizzes = rawData.map(quiz => ({
         ...quiz,
         difficulty: quiz.difficulty || 'Medium',
         topic_tags: quiz.topic_tags || [],
         time_taken: quiz.time_taken || 0,
-        id: quiz._id || Math.random().toString(36)
+        id: quiz._id || Math.random().toString(36),
+        question: quiz.question || quiz.title || 'Untitled Quiz',
+        lecture_title: quiz.lecture_title || 'Uncategorized'
       }));
-      
+
       setQuizzes(processedQuizzes);
-      
-      // Extract unique tags for filter
+
       const allTags = new Set();
       processedQuizzes.forEach(quiz => {
         quiz.topic_tags.forEach(tag => allTags.add(tag));
       });
       setAvailableTags(Array.from(allTags));
-      
-      setLoading(false);
+
+      setError(null);
     } catch (err) {
-      setError('Failed to load quizzes');
-      setLoading(false);
       console.error('Error fetching quizzes:', err);
+      setError('Failed to load quizzes');
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Filter quizzes based on current filters
   const filteredQuizzes = quizzes.filter(quiz => {
-    // Filter by difficulty
-    if (filters.difficulty !== 'all' && quiz.difficulty !== filters.difficulty) {
-      return false;
-    }
-    
-    // Filter by search text
-    if (filters.search && !quiz.question.toLowerCase().includes(filters.search.toLowerCase())) {
-      return false;
-    }
-    
-    // Filter by lecture
-    if (filters.lecture && !quiz.lecture_title.toLowerCase().includes(filters.lecture.toLowerCase())) {
-      return false;
-    }
-    
-    // Filter by tags
-    if (filters.tags.length > 0) {
-      const hasTag = filters.tags.some(tag => quiz.topic_tags.includes(tag));
-      if (!hasTag) return false;
-    }
-    
+    if (filters.difficulty !== 'all' && quiz.difficulty !== filters.difficulty) return false;
+    if (filters.search && !quiz.question.toLowerCase().includes(filters.search.toLowerCase())) return false;
+    if (filters.lecture && !quiz.lecture_title.toLowerCase().includes(filters.lecture.toLowerCase())) return false;
+    if (filters.tags.length > 0 && !filters.tags.some(tag => quiz.topic_tags.includes(tag))) return false;
     return true;
   });
 
-  // Group quizzes by lecture for better organization
   const groupedQuizzes = filteredQuizzes.reduce((groups, quiz) => {
     const lecture = quiz.lecture_title || 'Uncategorized';
-    if (!groups[lecture]) {
-      groups[lecture] = [];
-    }
+    if (!groups[lecture]) groups[lecture] = [];
     groups[lecture].push(quiz);
     return groups;
   }, {});
@@ -97,7 +85,7 @@ const QuizSelection = ({ onQuizSelect }) => {
   };
 
   const getDifficultyColor = (difficulty) => {
-    switch(difficulty) {
+    switch (difficulty) {
       case 'Easy': return '#10b981';
       case 'Medium': return '#f59e0b';
       case 'Hard': return '#ef4444';
@@ -132,32 +120,28 @@ const QuizSelection = ({ onQuizSelect }) => {
 
   return (
     <div className="quiz-selection-container">
-      {/* Header Section */}
       <div className="quiz-selection-header">
         <h2>📚 Select a Quiz</h2>
         <p>Choose from {quizzes.length} available quizzes</p>
       </div>
 
-      {/* Filters Section */}
       <div className="quiz-filters">
-        {/* Search Bar */}
         <div className="filter-group">
           <label>🔍 Search</label>
           <input
             type="text"
             placeholder="Search questions..."
             value={filters.search}
-            onChange={(e) => setFilters({...filters, search: e.target.value})}
+            onChange={(e) => setFilters({ ...filters, search: e.target.value })}
             className="filter-input"
           />
         </div>
 
-        {/* Difficulty Filter */}
         <div className="filter-group">
           <label>📊 Difficulty</label>
           <select
             value={filters.difficulty}
-            onChange={(e) => setFilters({...filters, difficulty: e.target.value})}
+            onChange={(e) => setFilters({ ...filters, difficulty: e.target.value })}
             className="filter-select"
           >
             <option value="all">All Levels</option>
@@ -167,19 +151,17 @@ const QuizSelection = ({ onQuizSelect }) => {
           </select>
         </div>
 
-        {/* Lecture Filter */}
         <div className="filter-group">
           <label>📖 Lecture</label>
           <input
             type="text"
             placeholder="Filter by lecture..."
             value={filters.lecture}
-            onChange={(e) => setFilters({...filters, lecture: e.target.value})}
+            onChange={(e) => setFilters({ ...filters, lecture: e.target.value })}
             className="filter-input"
           />
         </div>
 
-        {/* Tags Filter */}
         {availableTags.length > 0 && (
           <div className="filter-group filter-tags">
             <label>🏷️ Tags</label>
@@ -198,7 +180,6 @@ const QuizSelection = ({ onQuizSelect }) => {
         )}
       </div>
 
-      {/* Quiz List */}
       <div className="quiz-list">
         {Object.keys(groupedQuizzes).length === 0 ? (
           <div className="no-quizzes">
@@ -215,7 +196,6 @@ const QuizSelection = ({ onQuizSelect }) => {
                     className="quiz-card"
                     onClick={() => onQuizSelect(quiz)}
                   >
-                    {/* Difficulty Badge */}
                     <div
                       className="difficulty-badge"
                       style={{ backgroundColor: getDifficultyColor(quiz.difficulty) }}
@@ -223,20 +203,16 @@ const QuizSelection = ({ onQuizSelect }) => {
                       {quiz.difficulty}
                     </div>
 
-                    {/* Quiz Question */}
                     <div className="quiz-question">
                       {quiz.question}
                     </div>
 
-                    {/* Quiz Metadata */}
                     <div className="quiz-metadata">
-                      {/* Time Taken */}
                       <div className="meta-item">
                         <span className="meta-icon">⏱️</span>
                         <span>{formatTime(quiz.time_taken)}</span>
                       </div>
 
-                      {/* Topic Tags */}
                       {quiz.topic_tags.length > 0 && (
                         <div className="meta-tags">
                           {quiz.topic_tags.slice(0, 3).map((tag, i) => (
@@ -249,7 +225,6 @@ const QuizSelection = ({ onQuizSelect }) => {
                       )}
                     </div>
 
-                    {/* Options Preview */}
                     <div className="options-preview">
                       {quiz.options && quiz.options.length} options
                     </div>

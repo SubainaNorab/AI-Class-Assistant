@@ -1,0 +1,33 @@
+{
+  "quiz": [
+    {
+      "question": "What is backend development?",
+      "options": ["Development of user interface", "Development of behind-the-scenes functionality", "Development of databases", "Development of server operations"],
+      "answer": "Development of behind-the-scenes functionality"
+    },
+    {
+      "question": "Which of the following is NOT handled by backend development?",
+      "options": ["User interface", "Data storage", "Server operations", "Logic"],
+      "answer": "User interface"
+    },
+    {
+      "question": "What is the main difference between front-end and backend development?",
+      "options": ["Front-end deals with user interface, backend deals with logic and data storage", "Front-end deals with logic and data storage, backend deals with user interface", "Front-end deals with server operations, backend deals with user interface", "Front-end deals with user interface and logic, backend deals with data storage"],
+      "answer": "Front-end deals with user interface, backend deals with logic and data storage"
+    }
+  ],
+  "flashcards": [
+    {
+      "question": "What is backend development?",
+      "answer": "Backend development, also known as server-side development, is the behind-the-scenes functionality of websites and applications, including logic, data storage, and server operations."
+    },
+    {
+      "question": "What is the main difference between front-end and backend development?",
+      "answer": "Front-end development deals with the user interface and what users directly see and interact with, while backend development handles the logic, data storage, and server operations that enable an application to function."
+    },
+    {
+      "question": "What is an example of a backend language?",
+      "answer": "Some examples of backend languages include Python, Ruby, Java, and PHP."
+    }
+  ]
+}

@@ -3,7 +3,7 @@
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from summarizer import generate_summary
-from utils.quiz_generator import build_prompt, call_ai_model
+from utils.quiz_generator import build_prompt, call_ai_model,generate_quiz_and_flashcards
 from utils.pdf_reader import extract_text_from_pdf
 from werkzeug.utils import secure_filename
 from datetime import datetime, timezone
@@ -11,6 +11,7 @@ from database import quiz_collection, flashcard_collection, db
 import os
 import math
 from bson import ObjectId
+import uuid
 
 # Import the quiz blueprint
 from routes.quiz_routes import quiz_bp
@@ -400,52 +401,63 @@ def get_flashcards():
     except Exception as e:
         return jsonify({'error': f'Failed to fetch flashcards: {str(e)}'}), 500
 
-@app.route('/generate-quiz', methods=['POST'])
-def generate_quiz_content():
+QUIZZES = []
+FLASHCARDS = []
+
+@app.route("/generate-quiz", methods=["POST"])
+def generate_quiz_route():
     try:
         data = request.get_json()
-        summary = data.get("summary", "Generate a comprehensive quiz")
-        difficulty = data.get("difficulty", "Medium")
-        lecture_title = data.get("lecture_title", "Generated Quiz")
-        topic_tags = data.get("topic_tags", [])
-        
-        if isinstance(topic_tags, str):
-            topic_tags = [tag.strip() for tag in topic_tags.split(',') if tag.strip()]
-        
-        # Generate quiz using your AI model
-        from utils.quiz_generator import generate_quiz
-        quiz_questions = generate_quiz(summary)
-        
-        if not quiz_questions:
-            return jsonify({"error": "Quiz generation failed"}), 500
-        
-        # Save to database
-        created_at = datetime.utcnow()
-        quiz_docs = []
-        
+        summary = data.get("summary", "")
+
+        if not summary.strip():
+            return jsonify({"error": "Summary is required"}), 400
+
+        quiz_questions, flashcards = generate_quiz_and_flashcards(summary)
+
+        quiz_ids = []
         for q in quiz_questions:
-            quiz_docs.append({
-                "lecture_title": lecture_title,
-                "question": q.get("question", ""),
+            quiz_id = str(uuid.uuid4())
+            QUIZZES.append({
+                "id": quiz_id,
+                "question": q.get("question"),
                 "options": q.get("options", []),
-                "answer": q.get("answer", ""),
-                "difficulty": difficulty,
-                "topic_tags": topic_tags,
-                "created_at": created_at
+                "answer": q.get("answer"),
+                "created_at": datetime.utcnow().isoformat()
             })
-        
-        # Insert into database
-        if quiz_docs:
-            quiz_collection.insert_many(quiz_docs)
-        
+            quiz_ids.append(quiz_id)
+
+        flashcard_ids = []
+        for f in flashcards:
+            flashcard_id = str(uuid.uuid4())
+            FLASHCARDS.append({
+                "id": flashcard_id,
+                "question": f.get("question"),
+                "answer": f.get("answer"),
+                "created_at": datetime.utcnow().isoformat()
+            })
+            flashcard_ids.append(flashcard_id)
+
         return jsonify({
-            "message": "Quiz generated successfully",
-            "quiz_count": len(quiz_docs),
-            "quizzes": quiz_docs
-        }), 200
-        
+            "message": "Quiz and flashcards generated successfully",
+            "quiz_count": len(quiz_questions),
+            "quiz_ids": quiz_ids,
+            "flashcard_count": len(flashcards),
+            "flashcard_ids": flashcard_ids
+        })
+
     except Exception as e:
+        print(f"Error in generate_quiz: {e}")
         return jsonify({"error": f"Failed to generate quiz: {str(e)}"}), 500
 
-if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+@app.route("/quizzes", methods=["GET"])
+def get_quizzes():
+    return jsonify(QUIZZES)
+
+
+
+
+
+
+if __name__ == "__main__":
+    app.run(debug=True)
