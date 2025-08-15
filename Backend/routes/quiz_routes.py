@@ -14,7 +14,7 @@ def get_quizzes():
     try:
         # Get query parameters
         page = int(request.args.get('page', 1))
-        limit = int(request.args.get('limit', 10))
+        limit = int(request.args.get('limit', 20))  # Increased default limit
         search = request.args.get('search', '').strip()
         lecture_filter = request.args.get('lecture', '').strip()
         difficulty_filter = request.args.get('difficulty', '').strip()
@@ -24,14 +24,24 @@ def get_quizzes():
         if page < 1:
             page = 1
         if limit < 1 or limit > 100:
-            limit = 10
+            limit = 20
             
-        # Build MongoDB query
-        query = {}
+        # Build MongoDB query - EXCLUDE None questions
+        query = {
+            'question': {'$ne': None, '$exists': True, '$ne': ''},
+            'options': {'$ne': None, '$exists': True, '$not': {'$size': 0}},
+            'answer': {'$ne': None, '$exists': True, '$ne': ''}
+        }
         
         # Search by keyword in question
         if search:
-            query['question'] = {'$regex': search, '$options': 'i'}
+            query['question'] = {
+                '$regex': search, 
+                '$options': 'i',
+                '$ne': None,
+                '$exists': True,
+                '$ne': ''
+            }
             
         # Filter by lecture title
         if lecture_filter:
@@ -44,7 +54,7 @@ def get_quizzes():
         # Filter by date
         if date_filter:
             try:
-               
+                from datetime import datetime, timezone
                 start_date = datetime.strptime(date_filter, '%Y-%m-%d')
                 end_date = start_date.replace(hour=23, minute=59, second=59)
                 query['created_at'] = {
@@ -54,8 +64,11 @@ def get_quizzes():
             except ValueError:
                 pass  # Ignore invalid date format
         
+        print(f"Quiz query: {query}")
+        
         # Get total count for pagination
         total_count = quiz_collection.count_documents(query)
+        print(f"Total valid quizzes found: {total_count}")
         
         # Calculate pagination
         skip = (page - 1) * limit
@@ -64,21 +77,32 @@ def get_quizzes():
         # Fetch quizzes with pagination
         quizzes_cursor = quiz_collection.find(query).skip(skip).limit(limit).sort('created_at', -1)
         
-        # Convert cursor to list and format
+        # Convert cursor to list and format - CLEAN DATA
         quizzes = []
         for quiz in quizzes_cursor:
+            # Skip quizzes with invalid data
+            if not quiz.get('question') or not quiz.get('options') or not quiz.get('answer'):
+                print(f"Skipping invalid quiz: {quiz.get('_id')}")
+                continue
+                
             quiz_dict = {
                 '_id': str(quiz.get('_id', '')),
-                'lecture_title': quiz.get('lecture_title', ''),
-                'question': quiz.get('question', ''),
-                'options': quiz.get('options', []),
-                'answer': quiz.get('answer', ''),
+                'lecture_title': quiz.get('lecture_title', 'Untitled'),
+                'question': str(quiz.get('question', '')).strip(),
+                'options': quiz.get('options', []) if isinstance(quiz.get('options'), list) else [],
+                'answer': str(quiz.get('answer', '')).strip(),
                 'difficulty': quiz.get('difficulty', 'Medium'),
-                'topic_tags': quiz.get('topic_tags', []),
+                'topic_tags': quiz.get('topic_tags', []) if isinstance(quiz.get('topic_tags'), list) else [],
                 'time_taken': quiz.get('time_taken', 0),
-                'created_at': quiz.get('created_at', datetime.now()).isoformat() if quiz.get('created_at') else None
+                'created_at': quiz.get('created_at').isoformat() if quiz.get('created_at') else None
             }
-            quizzes.append(quiz_dict)
+            
+            # Final validation
+            if quiz_dict['question'] and quiz_dict['options'] and quiz_dict['answer']:
+                quizzes.append(quiz_dict)
+                print(f"Added quiz: {quiz_dict['question'][:50]}...")
+        
+        print(f"Returning {len(quizzes)} valid quizzes")
         
         return jsonify({
             'quizzes': quizzes,
@@ -86,7 +110,7 @@ def get_quizzes():
                 'page': page,
                 'limit': limit,
                 'total_pages': total_pages,
-                'total_count': total_count
+                'total_count': len(quizzes)  
             }
         }), 200
         
@@ -94,7 +118,6 @@ def get_quizzes():
         print(f"Error in get_quizzes: {str(e)}")
         return jsonify({'error': f'Failed to fetch quizzes: {str(e)}'}), 500
 
-# Rest of your code remains the same...
 @quiz_bp.route('/generate-quiz', methods=['POST'])
 def generate_quiz():
     """Generate quiz from summary with metadata"""
@@ -132,19 +155,33 @@ def generate_quiz():
         
         # Prepare quiz documents with metadata
         quiz_docs = []
-        if 'quiz' in result:
-            for q in result['quiz']:
+        if 'quiz' in result and result['quiz']:
+            for i, q in enumerate(result['quiz']):
+                # Validate quiz data before saving
+                question = q.get('question', '').strip()
+                options = q.get('options', [])
+                answer = q.get('answer', '').strip()
+                
+                if not question or not options or not answer:
+                    print(f"Skipping invalid quiz question {i+1}: question='{question}', options={options}, answer='{answer}'")
+                    continue
+                    
+                if not isinstance(options, list) or len(options) == 0:
+                    print(f"Skipping quiz with invalid options: {options}")
+                    continue
+                    
                 quiz_doc = {
                     'lecture_title': lecture_title,
-                    'question': q.get('question', ''),
-                    'options': q.get('options', []),
-                    'answer': q.get('answer', ''),
+                    'question': question,
+                    'options': options,
+                    'answer': answer,
                     'difficulty': difficulty,
                     'topic_tags': topic_tags,
                     'time_taken': time_taken,
                     'created_at': created_at
                 }
                 quiz_docs.append(quiz_doc)
+                print(f"Valid quiz doc {len(quiz_docs)}: {question[:50]}...") 
         
         # Prepare flashcard documents
         flashcard_docs = []

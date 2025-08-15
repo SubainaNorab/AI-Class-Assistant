@@ -1,69 +1,118 @@
-import React, { useEffect, useState, useContext } from 'react';
-import api from '../Api';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import 'bootstrap/dist/css/bootstrap.min.css';
-import { ToastContext } from './ToastProvider';
+// Frontend/src/components/StatsPage.js
+import React, { useState, useEffect } from 'react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 
-export default function StatsPage() {
-  const [data, setData] = useState([]);
-  const [summary, setSummary] = useState(null);
-  const { addToast } = useContext(ToastContext);
+const StatsPage = () => {
+  const [statsData, setStatsData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    api.get('/progress/123') // replace with actual userId
-      .then(res => {
-        setData(res.data.performance);
-        setSummary({
-          quizzes: res.data.quizzes_generated,
-          flashcards: res.data.flashcards_reviewed,
-          correctRatio: res.data.correct_ratio
-        });
-        addToast('Statistics loaded successfully ✅', 'success');
-      })
-      .catch(err => {
-        console.error(err);
-        addToast('Failed to load statistics ❌', 'error');
-      });
-  }, [addToast]);
+    fetchStats();
+  }, []);
+
+  const fetchStats = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('http://localhost:5000/progress');
+      
+      if (response.ok) {
+        const data = await response.json();
+        setStatsData(data);
+        setError(null);
+      } else {
+        const errorData = await response.json();
+        setError(errorData.error || 'Failed to fetch statistics');
+      }
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+      setError('Network error occurred');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="stats-page loading">
+        <div className="spinner"></div>
+        <p>Loading statistics...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="stats-page error">
+        <p>Error: {error}</p>
+        <button onClick={fetchStats}>Retry</button>
+      </div>
+    );
+  }
+
+  const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444'];
 
   return (
-    <div className="container py-4">
-      <h2>Progress</h2>
-      {summary && (
-        <div className="row mb-4">
-          <div className="col-md-4">
-            <div className="card p-3 shadow-sm">
-              <h6>Quizzes Generated</h6>
-              <strong>{summary.quizzes}</strong>
-            </div>
-          </div>
-          <div className="col-md-4">
-            <div className="card p-3 shadow-sm">
-              <h6>Flashcards Reviewed</h6>
-              <strong>{summary.flashcards}</strong>
-            </div>
-          </div>
-          <div className="col-md-4">
-            <div className="card p-3 shadow-sm">
-              <h6>Correct Ratio</h6>
-              <strong>{Math.round(summary.correctRatio * 100)}%</strong>
-            </div>
-          </div>
+    <div className="stats-page">
+      <div className="stats-header">
+        <h1>📊 Learning Progress</h1>
+        <p>Track your quiz and flashcard performance</p>
+      </div>
+
+      <div className="stats-grid">
+        <div className="stat-card">
+          <h3>Total Quizzes</h3>
+          <div className="stat-value">{statsData?.total_quizzes || 0}</div>
         </div>
-      )}
-      <div className="card p-3 shadow-sm">
-        <h5>Performance Over Time</h5>
-        <div style={{ height: 300 }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data}>
-              <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip />
-              <Bar dataKey="score" fill="#007bff" />
-            </BarChart>
-          </ResponsiveContainer>
+        
+        <div className="stat-card">
+          <h3>Total Flashcards</h3>
+          <div className="stat-value">{statsData?.total_flashcards || 0}</div>
         </div>
       </div>
+
+      <div className="chart-section">
+        <h2>Activity Over Time</h2>
+        <ResponsiveContainer width="100%" height={400}>
+          <LineChart data={statsData?.performance_data || []}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="date" />
+            <YAxis />
+            <Tooltip />
+            <Legend />
+            <Line type="monotone" dataKey="quizzes" stroke="#3b82f6" strokeWidth={3} />
+            <Line type="monotone" dataKey="flashcards" stroke="#10b981" strokeWidth={3} />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+
+      {statsData?.difficulty_breakdown && statsData.difficulty_breakdown.length > 0 && (
+        <div className="chart-section">
+          <h2>Quiz Difficulty Distribution</h2>
+          <ResponsiveContainer width="100%" height={300}>
+            <PieChart>
+              <Pie
+                data={statsData.difficulty_breakdown}
+                cx="50%"
+                cy="50%"
+                labelLine={false}
+                label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}
+                outerRadius={80}
+                fill="#8884d8"
+                dataKey="count"
+                nameKey="_id"
+              >
+                {statsData.difficulty_breakdown.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      )}
     </div>
   );
-}
+};
+
+export default StatsPage;

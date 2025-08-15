@@ -28,43 +28,87 @@ const QuizListPage = () => {
   }, []);
 
   const fetchQuizzes = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await quizService.getQuizzes(filters);
+  try {
+    setLoading(true);
+    setError(null);
+    
+    console.log('Fetching quizzes with filters:', filters);
+    
+    const data = await quizService.getQuizzes(filters);
+    console.log('Raw API response:', data);
 
-      const processedQuizzes = (data?.quizzes || data || []).map(quiz => ({
+    // Handle different response formats
+    let quizzesArray = [];
+    if (data.quizzes && Array.isArray(data.quizzes)) {
+      quizzesArray = data.quizzes;
+    } else if (Array.isArray(data)) {
+      quizzesArray = data;
+    } else {
+      console.warn('Unexpected data format:', data);
+      quizzesArray = [];
+    }
+
+    console.log(`Processing ${quizzesArray.length} quizzes`);
+
+    // Process and validate quizzes
+    const processedQuizzes = quizzesArray
+      .filter(quiz => {
+        // Filter out invalid quizzes
+        const isValid = quiz && 
+          quiz.question && 
+          quiz.question.trim() !== '' &&
+          Array.isArray(quiz.options) && 
+          quiz.options.length > 0 &&
+          quiz.answer && 
+          quiz.answer.trim() !== '';
+        
+        if (!isValid) {
+          console.warn('Filtering out invalid quiz:', quiz);
+        }
+        
+        return isValid;
+      })
+      .map(quiz => ({
         ...quiz,
         difficulty: quiz?.difficulty || 'Medium',
         topic_tags: Array.isArray(quiz?.topic_tags) ? quiz.topic_tags : [],
         time_taken: quiz?.time_taken || 0,
-        question: quiz?.question || '', // ensure string
+        question: quiz?.question?.trim() || '',
         options: Array.isArray(quiz?.options) ? quiz.options : [],
+        answer: quiz?.answer?.trim() || '',
+        lecture_title: quiz?.lecture_title || 'Untitled',
         id: quiz?._id || Math.random().toString(36)
       }));
 
-      setQuizzes(processedQuizzes);
+    console.log(`Final processed quizzes: ${processedQuizzes.length}`);
+    console.log('Sample quiz:', processedQuizzes[0]);
 
-      const allTags = new Set();
-      const allLectures = new Set();
+    setQuizzes(processedQuizzes);
 
-      processedQuizzes.forEach(quiz => {
+    // Extract unique values for filters
+    const allTags = new Set();
+    const allLectures = new Set();
+
+    processedQuizzes.forEach(quiz => {
+      if (Array.isArray(quiz.topic_tags)) {
         quiz.topic_tags.forEach(tag => allTags.add(tag));
-        if (quiz.lecture_title) {
-          allLectures.add(quiz.lecture_title);
-        }
-      });
+      }
+      if (quiz.lecture_title) {
+        allLectures.add(quiz.lecture_title);
+      }
+    });
 
-      setAvailableTags(Array.from(allTags));
-      setAvailableLectures(Array.from(allLectures));
-    } catch (err) {
-      console.error('Error fetching quizzes:', err);
-      setError('Failed to load quizzes. Please try again.');
-      addToast('Failed to load quizzes', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
+    setAvailableTags(Array.from(allTags));
+    setAvailableLectures(Array.from(allLectures));
+    
+  } catch (err) {
+    console.error('Error fetching quizzes:', err);
+    setError('Failed to load quizzes. Please try again.');
+    addToast('Failed to load quizzes', 'error');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const getFilteredQuizzes = () => {
     return quizzes.filter(quiz => {
@@ -134,29 +178,43 @@ const QuizListPage = () => {
     return `${minutes}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handleGenerateQuiz = async (formData) => {
-    try {
-      setLoading(true);
-      const quizData = {
-        summary: formData.summary,
-        lecture_title: formData.lecture_title,
+const handleGenerateQuiz = async (formData) => {
+  try {
+    setLoading(true);
+    
+    const response = await fetch('http://localhost:5000/generate-quiz', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        summary: `Generate quiz for ${formData.lecture_title}`,
         difficulty: formData.difficulty,
+        lecture_title: formData.lecture_title,
         topic_tags: formData.topic_tags
-          .split(',')
-          .map(tag => tag.trim())
-          .filter(tag => tag)
-      };
-      await quizService.generateQuiz(quizData);
-      addToast('Quiz generated successfully!', 'success');
+      })
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
       setShowGenerateModal(false);
-      fetchQuizzes();
-    } catch (error) {
-      console.error('Error generating quiz:', error);
-      addToast('Failed to generate quiz', 'error');
-    } finally {
-      setLoading(false);
+      
+      // Refresh the quiz list
+      await fetchQuizzes();
+      
+      // Show success message
+      alert(`Quiz generated successfully! ${data.quiz_count} questions created.`);
+    } else {
+      const errorData = await response.json();
+      alert(`Error: ${errorData.error}`);
     }
-  };
+  } catch (error) {
+    console.error('Error generating quiz:', error);
+    alert('Failed to generate quiz');
+  } finally {
+    setLoading(false);
+  }
+};
 
   if (selectedQuiz) {
     return (
