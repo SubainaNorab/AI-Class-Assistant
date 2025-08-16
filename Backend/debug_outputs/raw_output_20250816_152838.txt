@@ -1,0 +1,33 @@
+{
+  "quiz": [
+    {
+      "question": "What is Machine Learning (ML) as described in the content?",
+      "options": ["A subfield of Physics that studies motion", "A branch of Artificial Intelligence that allows systems to learn from data and improve their performance without being explicitly programmed", "A type of cooking technique", "A form of musical composition"],
+      "answer": "A branch of Artificial Intelligence that allows systems to learn from data and improve their performance without being explicitly programmed"
+    },
+    {
+      "question": "Which of the following is NOT a category of Machine Learning mentioned in the content?",
+      "options": ["Supervised learning", "Unsupervised learning", "Reinforced learning", "Recommendation learning"],
+      "answer": "Recommendation learning"
+    },
+    {
+      "question": "What is one of the main challenges of Machine Learning according to the content?",
+      "options": ["Lack of large datasets", "Explicit programming requirements", "Overfitting", "Understanding music theory"],
+      "answer": "Lack of large datasets"
+    }
+  ],
+  "flashcards": [
+    {
+      "question": "What is Machine Learning?",
+      "answer": "A branch of Artificial Intelligence that allows systems to learn from data and improve their performance without being explicitly programmed."
+    },
+    {
+      "question": "What are the three categories of Machine Learning?",
+      "answer": "Supervised learning, unsupervised learning, and reinforcement learning."
+    },
+    {
+      "question": "What is overfitting in Machine Learning?",
+      "answer": "A situation where a model learns the training data too well and performs poorly on new data due to its complexity."
+    }
+  ]
+}

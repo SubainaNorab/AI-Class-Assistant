@@ -1,4 +1,4 @@
-﻿# Backend/utils/quiz_generator.py - FIXED VERSION
+﻿# Backend/utils/quiz_generator.py
 
 import together
 import json
@@ -7,8 +7,8 @@ import os
 from datetime import datetime
 
 # === TOGETHER AI SETUP ===
-# IMPORTANT: Add your Together AI API key here
-together.api_key = "YOUR_TOGETHER_AI_API_KEY_HERE"  # Replace with your actual API key
+
+together.api_key = "59deebef8362036e839d3829a79c1c8da6bbc168157d2c8c8dfae5d539e8bd60"  
 LLM_MODEL = "mistralai/Mixtral-8x7B-Instruct-v0.1"
 
 # === Fallback Quiz Generation ===
@@ -72,7 +72,8 @@ def generate_fallback_quiz(summary):
     return quiz[:3], flashcards[:3]
 
 # === Prompt Builder ===
-def build_prompt(summary):
+def create_quiz_prompt(summary):
+    """Build prompt for AI model"""
     return f"""
 You are an expert quiz generator. Based on the following content, create EXACTLY 3 multiple-choice quiz questions and EXACTLY 3 flashcards.
 
@@ -146,11 +147,11 @@ def clean_json_string(json_str):
     return json_str.strip()
 
 # === Model Call ===
-def call_ai_model(prompt):
+def call_together_ai(prompt):
     """Call Together AI model with error handling"""
     try:
         # Check if API key is set
-        if not together.api_key or together.api_key == "59deebef8362036e839d3829a79c1c8da6bbc168157d2c8c8dfae5d539e8bd60":
+        if not together.api_key or together.api_key == "YOUR_TOGETHER_AI_API_KEY_HERE":
             print("⚠️ Together AI API key not set. Using fallback generation.")
             return None
         
@@ -248,7 +249,7 @@ def extract_quiz_and_flashcards(output):
         print(f"❌ Extraction error: {e}")
         return {"quiz": [], "flashcards": []}
 
-# === Final Function ===
+# === Main Function ===
 def generate_quiz_and_flashcards(summary):
     """Main function to generate quiz and flashcards"""
     print("📜 Summary received for quiz generation:", repr(summary[:100]) + "..." if len(summary) > 100 else repr(summary))
@@ -258,8 +259,8 @@ def generate_quiz_and_flashcards(summary):
         return [], []
 
     # Try AI model first
-    prompt = build_prompt(summary)
-    raw_output = call_ai_model(prompt)
+    prompt = create_quiz_prompt(summary)
+    raw_output = call_together_ai(prompt)
     
     if raw_output:
         result = extract_quiz_and_flashcards(raw_output)
@@ -280,11 +281,11 @@ def generate_quiz_and_flashcards(summary):
     print(f"📊 Generated {len(quiz)} quiz questions and {len(flashcards)} flashcards using fallback method.")
     return quiz, flashcards
 
-# === Legacy compatibility functions ===
+# === Legacy support functions for backward compatibility ===
 def build_prompt(summary):
-    """Legacy function name compatibility"""
-    return build_prompt(summary)
+    """Legacy function name - redirects to new function"""
+    return create_quiz_prompt(summary)
 
 def call_ai_model(prompt):
-    """Legacy function name compatibility"""
-    return call_ai_model(prompt)
+    """Legacy function name - redirects to new function"""
+    return call_together_ai(prompt)
