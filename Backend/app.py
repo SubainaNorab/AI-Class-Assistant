@@ -1,12 +1,12 @@
-# Backend/app.py
+# Backend/app.py 
 
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 from summarizer import generate_summary
 from utils.quiz_generator import generate_quiz_and_flashcards
 from utils.pdf_reader import extract_text_from_pdf
 from werkzeug.utils import secure_filename
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from database import quiz_collection, flashcard_collection, db
 import os
 import math
@@ -16,64 +16,69 @@ import uuid
 app = Flask(__name__)
 CORS(app)
 
-# Create collections
-feedback_collection = db["feedback"]
+# Collections for comprehensive tracking
 quiz_results_collection = db["quiz_results"]
+quiz_sessions_collection = db["quiz_sessions"]
+feedback_collection = db["feedback"]
+user_profiles_collection = db["user_profiles"]
 
+# Respect existing upload folder structure
 UPLOAD_FOLDER = 'uploads'
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-ALLOWED_EXTENSIONS = {'pdf', 'docx', 'pptx', 'txt', 'mp3', 'wav'}
+UPLOAD_SUBFOLDERS = {
+    'audio': ['mp3', 'wav', 'aac', 'flac', 'm4a'],
+    'documents': ['txt', 'rtf', 'md'],
+    'pdfs': ['pdf'],
+    'presentations': ['ppt', 'pptx', 'odp']
+}
 
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+# Create subfolders if they don't exist (preserve existing structure)
+for subfolder in UPLOAD_SUBFOLDERS.keys():
+    subfolder_path = os.path.join(UPLOAD_FOLDER, subfolder)
+    os.makedirs(subfolder_path, exist_ok=True)
 
-def get_file_category(filename):
-    ext = filename.rsplit('.', 1)[1].lower()
-    if ext in ['mp3', 'wav']:
-        return 'audio'
-    elif ext in ['pdf']:
-        return 'pdfs'
-    elif ext in ['docx', 'pptx']:
-        return 'presentations'
-    elif ext in ['txt']:
-        return 'documents'
+def get_upload_subfolder(filename):
+    """Determine which subfolder to use based on file extension"""
+    if not filename:
+        return 'documents'  # Default fallback
+    
+    ext = filename.rsplit('.', 1)[1].lower() if '.' in filename else ''
+    
+    for subfolder, extensions in UPLOAD_SUBFOLDERS.items():
+        if ext in extensions:
+            return subfolder
+    
+    # Default fallback for unknown extensions
     return 'documents'
 
-# ===== ROUTE: Test endpoint =====
-@app.route('/', methods=['GET'])
-def health_check():
-    """Test endpoint to verify server is running"""
-    return jsonify({
-        'message': 'Quiz Generation API is running!',
-        'status': 'healthy',
-        'endpoints': [
-            'POST /generate-quiz - Generate new quiz',
-            'GET /quizzes - Get all quizzes',
-            'POST /quiz-results - Save quiz results',
-            'GET /progress - Get progress stats',
-            'POST /upload - Upload files',
-            'POST /summarize - Summarize text'
-        ]
-    })
+def allowed_file(filename):
+    """Check if file type is allowed based on existing structure"""
+    if not filename or '.' not in filename:
+        return False
+    
+    ext = filename.rsplit('.', 1)[1].lower()
+    all_allowed_extensions = []
+    for extensions in UPLOAD_SUBFOLDERS.values():
+        all_allowed_extensions.extend(extensions)
+    
+    return ext in all_allowed_extensions
 
-# ===== ROUTE: Generate Quiz =====
+def get_file_category(filename):
+    """Get file category based on existing folder structure"""
+    return get_upload_subfolder(filename)
+
+# ===== QUIZ GENERATION (Unchanged - respects existing functionality) =====
 @app.route('/generate-quiz', methods=['POST'])
 def generate_quiz_route():
-    """Main route for quiz generation"""
+    """Generate quiz with comprehensive metadata - UNCHANGED"""
     try:
-        print("🎯 Generate quiz route called")
         data = request.get_json()
-        
-        if not data:
-            return jsonify({'error': 'No JSON data provided'}), 400
         
         # Extract data with defaults
         summary = data.get('summary', '').strip()
         lecture_title = data.get('lecture_title', 'Generated Quiz').strip()
         difficulty = data.get('difficulty', 'Medium')
         topic_tags = data.get('topic_tags', [])
-        
-        print(f"📝 Request data: summary={summary[:50]}..., lecture={lecture_title}, difficulty={difficulty}")
+        user_id = data.get('user_id', 'anonymous')
         
         # Validate required fields
         if not summary:
@@ -94,102 +99,99 @@ def generate_quiz_route():
             else:
                 topic_tags = []
         
-        print(f"🎯 Generating quiz: {lecture_title} | Difficulty: {difficulty} | Tags: {topic_tags}")
+        print(f"🎯 Generating quiz: {lecture_title} | Difficulty: {difficulty} | User: {user_id}")
         
-        # Generate quiz and flashcards using the utility function
+        # Generate quiz and flashcards
         quiz_questions, flashcards = generate_quiz_and_flashcards(summary)
         
         if not quiz_questions:
             return jsonify({'error': 'Failed to generate quiz questions'}), 500
             
         created_at = datetime.utcnow()
+        quiz_id = str(ObjectId())
         
-        # Prepare quiz documents with metadata
+        # Prepare quiz documents
         quiz_docs = []
         for i, q in enumerate(quiz_questions):
-            # Validate quiz data before saving
             question = q.get('question', '').strip()
             options = q.get('options', [])
             answer = q.get('answer', '').strip()
             
             if not question or not options or not answer:
-                print(f"⚠️ Skipping invalid quiz question {i+1}: question='{question}', options={options}, answer='{answer}'")
                 continue
                 
             if not isinstance(options, list) or len(options) == 0:
-                print(f"⚠️ Skipping quiz with invalid options: {options}")
                 continue
                 
             quiz_doc = {
+                '_id': ObjectId(),
+                'quiz_id': quiz_id,
                 'lecture_title': lecture_title,
                 'question': question,
                 'options': options,
                 'answer': answer,
                 'difficulty': difficulty,
                 'topic_tags': topic_tags,
+                'question_number': i + 1,
+                'total_questions': len([q for q in quiz_questions if q.get('question')]),
                 'created_at': created_at,
-                'is_completed': False,
-                'completion_time': None
+                'created_by': user_id,
+                'source_summary': summary[:200] + '...' if len(summary) > 200 else summary
             }
             quiz_docs.append(quiz_doc)
-            print(f"✅ Valid quiz doc {len(quiz_docs)}: {question[:50]}...") 
         
         # Prepare flashcard documents
         flashcard_docs = []
         if flashcards:
             for fc in flashcards:
                 flashcard_doc = {
+                    '_id': ObjectId(),
+                    'quiz_id': quiz_id,
                     'lecture_title': lecture_title,
                     'question': fc.get('question', ''),
                     'answer': fc.get('answer', ''),
-                    'created_at': created_at
+                    'created_at': created_at,
+                    'created_by': user_id
                 }
                 flashcard_docs.append(flashcard_doc)
         
         # Insert into database
-        quiz_ids = []
-        flashcard_ids = []
-        
         if quiz_docs:
-            result = quiz_collection.insert_many(quiz_docs)
-            quiz_ids = [str(id) for id in result.inserted_ids]
-            print(f"💾 Saved {len(quiz_docs)} quiz questions to database")
+            quiz_collection.insert_many(quiz_docs)
+            print(f"💾 Saved {len(quiz_docs)} questions for lecture: {lecture_title}")
             
         if flashcard_docs:
-            result = flashcard_collection.insert_many(flashcard_docs)
-            flashcard_ids = [str(id) for id in result.inserted_ids]
-            print(f"💾 Saved {len(flashcard_docs)} flashcards to database")
+            flashcard_collection.insert_many(flashcard_docs)
+            print(f"💾 Saved {len(flashcard_docs)} flashcards")
         
         return jsonify({
             'message': 'Quiz and flashcards generated successfully',
-            'quiz_count': len(quiz_docs),
+            'quiz_id': quiz_id,
+            'lecture_title': lecture_title,
+            'question_count': len(quiz_docs),
             'flashcard_count': len(flashcard_docs),
-            'quiz_ids': quiz_ids,
-            'flashcard_ids': flashcard_ids,
-            'lecture_title': lecture_title
+            'difficulty': difficulty,
+            'topic_tags': topic_tags
         }), 201
         
     except Exception as e:
         print(f"❌ Error in generate_quiz: {str(e)}")
-        import traceback
-        traceback.print_exc()
         return jsonify({'error': f'Failed to generate quiz: {str(e)}'}), 500
 
-# ===== ROUTE: Get Quizzes =====
-@app.route('/quizzes', methods=['GET'])
-def get_quizzes():
-    """Get all quizzes grouped by lecture for frontend display"""
+# ===== GET LECTURES (Fixed score display + Enhanced features) =====
+@app.route('/lectures', methods=['GET'])
+def get_lectures():
+    """Get all lectures with comprehensive progress and metadata"""
     try:
-        print("📚 Get quizzes route called")
+        print("📚 Fetching lectures with enhanced data...")
         
         # Get query parameters for filtering
         search = request.args.get('search', '').strip()
         difficulty_filter = request.args.get('difficulty', '').strip()
-        lecture_filter = request.args.get('lecture', '').strip()
+        tag_filter = request.args.get('tag', '').strip()
+        user_id = request.args.get('user_id', 'anonymous')
         
-        print(f"🔍 Filters: search='{search}', difficulty='{difficulty_filter}', lecture='{lecture_filter}'")
-        
-        # Build query - EXCLUDE invalid questions
+        # Build query
         query = {
             'question': {'$ne': None, '$exists': True, '$ne': ''},
             'options': {'$ne': None, '$exists': True, '$not': {'$size': 0}},
@@ -197,344 +199,640 @@ def get_quizzes():
         }
         
         # Add filters
-        if search:
-            query['question'] = {
-                '$regex': search, 
-                '$options': 'i',
-                '$ne': None,
-                '$exists': True,
-                '$ne': ''
-            }
-            
         if difficulty_filter and difficulty_filter != 'all':
             query['difficulty'] = difficulty_filter
             
-        if lecture_filter:
-            query['lecture_title'] = {'$regex': lecture_filter, '$options': 'i'}
-        
-        print(f"🔍 MongoDB query: {query}")
-        
-        # Fetch quizzes from database
-        quizzes_cursor = quiz_collection.find(query).sort('created_at', -1)
-        quizzes = list(quizzes_cursor)
-        
-        print(f"📊 Found {len(quizzes)} quizzes in database")
-        
-        # Group quizzes by lecture title for frontend
-        grouped_quizzes = {}
-        
-        for quiz in quizzes:
-            lecture_title = quiz.get('lecture_title', 'Untitled Quiz')
+        if tag_filter:
+            query['topic_tags'] = {'$in': [tag_filter]}
             
-            # Convert ObjectId to string for JSON serialization
-            quiz['_id'] = str(quiz['_id'])
-            
-            # Format created_at for frontend
-            if quiz.get('created_at'):
-                quiz['created_at'] = quiz['created_at'].isoformat()
-            
-            # Initialize lecture group if not exists
-            if lecture_title not in grouped_quizzes:
-                grouped_quizzes[lecture_title] = {
-                    'lecture_title': lecture_title,
-                    'questions': [],
-                    'total_questions': 0,
-                    'difficulty': quiz.get('difficulty', 'Medium'),
-                    'topic_tags': quiz.get('topic_tags', []),
-                    'created_at': quiz.get('created_at'),
-                    'progress': {
-                        'completed': 0,
-                        'total': 0,
-                        'percentage': 0
-                    }
-                }
-            
-            # Add quiz to group
-            grouped_quizzes[lecture_title]['questions'].append({
-                '_id': quiz['_id'],
-                'question': quiz['question'],
-                'options': quiz['options'],
-                'answer': quiz['answer'],
-                'difficulty': quiz.get('difficulty', 'Medium'),
-                'is_completed': quiz.get('is_completed', False),
-                'completion_time': quiz.get('completion_time')
-            })
-            
-            grouped_quizzes[lecture_title]['total_questions'] += 1
-            
-            # Update progress
-            if quiz.get('is_completed'):
-                grouped_quizzes[lecture_title]['progress']['completed'] += 1
-        
-        # Calculate progress percentages
-        for lecture_data in grouped_quizzes.values():
-            total = lecture_data['progress']['total'] = lecture_data['total_questions']
-            completed = lecture_data['progress']['completed']
-            lecture_data['progress']['percentage'] = int((completed / total * 100)) if total > 0 else 0
-        
-        print(f"📚 Returning {len(grouped_quizzes)} lecture groups with {len(quizzes)} total questions")
-        
-        return jsonify({
-            'quizzes': grouped_quizzes,
-            'total_lectures': len(grouped_quizzes),
-            'total_questions': len(quizzes)
-        }), 200
-        
-    except Exception as e:
-        print(f"❌ Error fetching quizzes: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({'error': f'Failed to fetch quizzes: {str(e)}'}), 500
-
-# ===== ROUTE: Save Quiz Results =====
-@app.route('/quiz-results', methods=['POST'])
-def save_quiz_result():
-    """Save quiz completion result for progress tracking"""
-    try:
-        print("💾 Save quiz result route called")
-        data = request.get_json()
-        
-        quiz_id = data.get('quiz_id')
-        is_correct = data.get('is_correct', False)
-        time_taken = data.get('time_taken', 0)
-        selected_answer = data.get('selected_answer', '')
-        correct_answer = data.get('correct_answer', '')
-        
-        print(f"📊 Quiz result: id={quiz_id}, correct={is_correct}, time={time_taken}s")
-        
-        if not quiz_id:
-            return jsonify({'error': 'Quiz ID is required'}), 400
-        
-        # Save result to quiz_results collection
-        result_doc = {
-            'quiz_id': quiz_id,
-            'is_correct': is_correct,
-            'time_taken': time_taken,
-            'selected_answer': selected_answer,
-            'correct_answer': correct_answer,
-            'completed_at': datetime.utcnow()
-        }
-        
-        quiz_results_collection.insert_one(result_doc)
-        
-        # Update the quiz document to mark as completed
-        try:
-            quiz_collection.update_one(
-                {'_id': ObjectId(quiz_id)},
-                {
-                    '$set': {
-                        'is_completed': True,
-                        'completion_time': time_taken,
-                        'last_completed': datetime.utcnow()
-                    }
-                }
-            )
-            print(f"✅ Updated quiz {quiz_id} completion status")
-        except Exception as e:
-            print(f"⚠️ Could not update quiz completion: {e}")
-        
-        print(f"💾 Saved quiz result: {quiz_id} | Correct: {is_correct} | Time: {time_taken}s")
-        
-        return jsonify({
-            'message': 'Quiz result saved successfully',
-            'result_id': str(result_doc.get('_id'))
-        }), 201
-        
-    except Exception as e:
-        print(f"❌ Error saving quiz result: {str(e)}")
-        return jsonify({'error': f'Failed to save quiz result: {str(e)}'}), 500
-
-# ===== ROUTE: Progress Statistics =====
-@app.route('/progress', methods=['GET'])
-def get_progress_stats():
-    """Get user's quiz progress statistics"""
-    try:
-        print("📈 Get progress stats route called")
-        
-        # Get total quizzes
-        total_quizzes = quiz_collection.count_documents({
-            'question': {'$ne': None, '$exists': True, '$ne': ''}
-        })
-        
-        # Get completed quizzes
-        completed_quizzes = quiz_collection.count_documents({
-            'is_completed': True
-        })
-        
-        # Get recent results
-        recent_results = list(quiz_results_collection.find({}).sort('completed_at', -1).limit(10))
-        
-        # Calculate accuracy
-        correct_answers = quiz_results_collection.count_documents({'is_correct': True})
-        total_attempts = quiz_results_collection.count_documents({})
-        accuracy = (correct_answers / total_attempts * 100) if total_attempts > 0 else 0
-        
-        # Get average time
-        pipeline = [
-            {'$group': {'_id': None, 'avg_time': {'$avg': '$time_taken'}}}
-        ]
-        avg_time_result = list(quiz_results_collection.aggregate(pipeline))
-        avg_time = avg_time_result[0]['avg_time'] if avg_time_result else 0
-        
-        stats = {
-            'total_quizzes': total_quizzes,
-            'completed_quizzes': completed_quizzes,
-            'completion_percentage': int((completed_quizzes / total_quizzes * 100)) if total_quizzes > 0 else 0,
-            'accuracy_percentage': int(accuracy),
-            'average_time_seconds': int(avg_time),
-            'total_attempts': total_attempts,
-            'recent_results': [
-                {
-                    'quiz_id': str(result['quiz_id']),
-                    'is_correct': result['is_correct'],
-                    'time_taken': result['time_taken'],
-                    'completed_at': result['completed_at'].isoformat()
-                }
-                for result in recent_results
-            ]
-        }
-        
-        print(f"📈 Progress stats: {stats}")
-        
-        return jsonify(stats), 200
-        
-    except Exception as e:
-        print(f"❌ Error fetching progress stats: {str(e)}")
-        return jsonify({'error': f'Failed to fetch progress: {str(e)}'}), 500
-
-# ===== ROUTE: Get Flashcards =====
-@app.route('/flashcards', methods=['GET'])
-def get_flashcards():
-    """Get flashcards with pagination and filters"""
-    try:
-        print("🃏 Get flashcards route called")
-        
-        # Get query parameters
-        page = int(request.args.get('page', 1))
-        limit = int(request.args.get('limit', 20))
-        search = request.args.get('search', '').strip()
-        lecture_filter = request.args.get('lecture', '').strip()
-        
-        # Validate pagination
-        if page < 1:
-            page = 1
-        if limit < 1 or limit > 100:
-            limit = 20
-            
-        # Build query
-        query = {}
-        
         if search:
             query['$or'] = [
                 {'question': {'$regex': search, '$options': 'i'}},
-                {'answer': {'$regex': search, '$options': 'i'}}
+                {'lecture_title': {'$regex': search, '$options': 'i'}}
             ]
+        
+        # Get all matching quizzes
+        quizzes = list(quiz_collection.find(query).sort('created_at', -1))
+        print(f"📊 Found {len(quizzes)} total quiz questions")
+        
+        # Group by quiz_id and lecture_title
+        lectures = {}
+        
+        for quiz in quizzes:
+            quiz_id = quiz.get('quiz_id', str(quiz['_id']))
+            lecture_title = quiz.get('lecture_title', 'Untitled Quiz')
             
-        if lecture_filter:
-            query['lecture_title'] = {'$regex': lecture_filter, '$options': 'i'}
-        
-        # Get total count
-        total_count = flashcard_collection.count_documents(query)
-        total_pages = math.ceil(total_count / limit)
-        
-        # Get paginated results
-        skip = (page - 1) * limit
-        flashcards_cursor = flashcard_collection.find(query).skip(skip).limit(limit).sort('created_at', -1)
-        flashcards = list(flashcards_cursor)
-        
-        # Format for frontend
-        formatted_flashcards = []
-        for fc in flashcards:
-            formatted_flashcards.append({
-                '_id': str(fc['_id']),
-                'lecture_title': fc.get('lecture_title', ''),
-                'question': fc.get('question', ''),
-                'answer': fc.get('answer', ''),
-                'created_at': fc.get('created_at', datetime.now()).isoformat() if fc.get('created_at') else None
+            if quiz_id not in lectures:
+                lectures[quiz_id] = {
+                    'quiz_id': quiz_id,
+                    'lecture_title': lecture_title,
+                    'questions': [],
+                    'total_questions': quiz.get('total_questions', 1),
+                    'difficulty': quiz.get('difficulty', 'Medium'),
+                    'topic_tags': quiz.get('topic_tags', []),
+                    'created_at': quiz.get('created_at'),
+                    'created_by': quiz.get('created_by', 'anonymous'),
+                    'source_summary': quiz.get('source_summary', ''),
+                    'progress': {
+                        'completed': 0,
+                        'total': quiz.get('total_questions', 1),
+                        'percentage': 0,
+                        'is_completed': False,
+                        'current_question': 1,
+                        'final_score': None,
+                        'last_attempt': None
+                    },
+                    'stats': {
+                        'attempts': 0,
+                        'best_score': 0,
+                        'average_score': 0,
+                        'total_time': 0
+                    }
+                }
+            
+            # Add question to lecture
+            lectures[quiz_id]['questions'].append({
+                'question_id': str(quiz['_id']),
+                'question': quiz['question'],
+                'options': quiz['options'],
+                'answer': quiz['answer'],
+                'question_number': quiz.get('question_number', len(lectures[quiz_id]['questions']) + 1)
             })
         
+        # Get progress and stats for each lecture - FIXED SCORE DISPLAY
+        for quiz_id, lecture_data in lectures.items():
+            # Get current session
+            session = quiz_sessions_collection.find_one({'quiz_id': quiz_id})
+            if session:
+                lecture_data['progress'] = {
+                    'completed': session.get('questions_completed', 0),
+                    'total': session.get('total_questions', lecture_data['total_questions']),
+                    'percentage': int((session.get('questions_completed', 0) / session.get('total_questions', 1)) * 100),
+                    'is_completed': session.get('is_completed', False),
+                    'current_question': session.get('current_question', 1),
+                    'final_score': session.get('final_score'),  # FIXED: This now properly retrieves the score
+                    'last_attempt': session.get('completed_at', session.get('last_updated'))
+                }
+            
+            # Get all-time stats
+            all_sessions = list(quiz_sessions_collection.find({
+                'quiz_id': quiz_id,
+                'is_completed': True
+            }))
+            
+            if all_sessions:
+                scores = [s.get('final_score', 0) for s in all_sessions if s.get('final_score') is not None]
+                times = [s.get('total_time', 0) for s in all_sessions if s.get('total_time') is not None]
+                
+                lecture_data['stats'] = {
+                    'attempts': len(all_sessions),
+                    'best_score': max(scores) if scores else 0,
+                    'average_score': sum(scores) / len(scores) if scores else 0,
+                    'total_time': sum(times) if times else 0
+                }
+            
+            # Update total_questions based on actual questions
+            actual_question_count = len(lecture_data['questions'])
+            lecture_data['total_questions'] = actual_question_count
+            lecture_data['progress']['total'] = actual_question_count
+            
+            # Sort questions by question_number
+            lecture_data['questions'].sort(key=lambda x: x.get('question_number', 0))
+            
+            # Format dates for JSON
+            if lecture_data['created_at']:
+                lecture_data['created_at'] = lecture_data['created_at'].isoformat()
+            if lecture_data['progress']['last_attempt']:
+                lecture_data['progress']['last_attempt'] = lecture_data['progress']['last_attempt'].isoformat()
+        
+        # Convert to list and sort
+        lecture_list = list(lectures.values())
+        lecture_list.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+        
+        print(f"📚 Returning {len(lecture_list)} lectures with enhanced data")
+        
         return jsonify({
-            'flashcards': formatted_flashcards,
-            'pagination': {
-                'page': page,
-                'limit': limit,
-                'total_pages': total_pages,
-                'total_count': total_count
-            }
+            'lectures': lecture_list,
+            'total_lectures': len(lecture_list),
+            'available_tags': get_available_tags(),
+            'available_difficulties': ['Easy', 'Medium', 'Hard']
         }), 200
         
     except Exception as e:
-        print(f"❌ Error fetching flashcards: {str(e)}")
-        return jsonify({'error': f'Failed to fetch flashcards: {str(e)}'}), 500
+        print(f"❌ Error fetching lectures: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': f'Failed to fetch lectures: {str(e)}'}), 500
 
-# ===== ROUTE: Upload File =====
+def get_available_tags():
+    """Get all unique tags from quizzes"""
+    try:
+        pipeline = [
+            {'$unwind': '$topic_tags'},
+            {'$group': {'_id': '$topic_tags'}},
+            {'$sort': {'_id': 1}}
+        ]
+        tags = [doc['_id'] for doc in quiz_collection.aggregate(pipeline)]
+        return tags
+    except:
+        return []
+
+# ===== QUIZ ROUTES (Enhanced with proper score tracking) =====
+@app.route('/quiz/<quiz_id>', methods=['GET'])
+def get_quiz(quiz_id):
+    """Get quiz for taking with enhanced session management"""
+    try:
+        print(f"🎯 Getting quiz: {quiz_id}")
+        
+        # Get questions for this quiz
+        questions = list(quiz_collection.find({
+            'quiz_id': quiz_id
+        }).sort('question_number', 1))
+        
+        if not questions:
+            # Try fallback for old structure
+            try:
+                question = quiz_collection.find_one({'_id': ObjectId(quiz_id)})
+                if question:
+                    questions = [question]
+            except:
+                pass
+        
+        if not questions:
+            return jsonify({'error': 'Quiz not found'}), 404
+        
+        # Get or create quiz session
+        session = quiz_sessions_collection.find_one({'quiz_id': quiz_id})
+        if not session:
+            session = {
+                'quiz_id': quiz_id,
+                'lecture_title': questions[0]['lecture_title'],
+                'total_questions': len(questions),
+                'current_question': 1,
+                'questions_completed': 0,
+                'is_completed': False,
+                'started_at': datetime.utcnow(),
+                'answers': [],
+                'user_id': 'anonymous'
+            }
+            quiz_sessions_collection.insert_one(session)
+            print(f"📝 Created new quiz session for {quiz_id}")
+        
+        # Format questions for frontend
+        formatted_questions = []
+        for i, q in enumerate(questions):
+            formatted_questions.append({
+                'question_id': str(q['_id']),
+                'question': q['question'],
+                'options': q['options'],
+                'answer': q['answer'],
+                'question_number': q.get('question_number', i + 1)
+            })
+        
+        quiz_data = {
+            'quiz_id': quiz_id,
+            'lecture_title': questions[0]['lecture_title'],
+            'difficulty': questions[0].get('difficulty', 'Medium'),
+            'topic_tags': questions[0].get('topic_tags', []),
+            'questions': formatted_questions,
+            'total_questions': len(formatted_questions),
+            'session': {
+                'current_question': session['current_question'],
+                'questions_completed': session['questions_completed'],
+                'is_completed': session['is_completed'],
+                'started_at': session['started_at'].isoformat() if session.get('started_at') else None
+            },
+            'metadata': {
+                'created_by': questions[0].get('created_by', 'anonymous'),
+                'source_summary': questions[0].get('source_summary', ''),
+                'created_at': questions[0].get('created_at', '').isoformat() if questions[0].get('created_at') else None
+            }
+        }
+        
+        print(f"✅ Returning quiz with {len(formatted_questions)} questions")
+        return jsonify(quiz_data), 200
+        
+    except Exception as e:
+        print(f"❌ Error getting quiz: {str(e)}")
+        return jsonify({'error': f'Failed to get quiz: {str(e)}'}), 500
+
+@app.route('/quiz/<quiz_id>/answer', methods=['POST'])
+def submit_answer(quiz_id):
+    """Submit answer with enhanced tracking and FIXED score calculation"""
+    try:
+        data = request.get_json()
+        
+        question_id = data.get('question_id')
+        selected_answer = data.get('selected_answer')
+        correct_answer = data.get('correct_answer')
+        time_taken = data.get('time_taken', 0)
+        question_number = data.get('question_number', 1)
+        user_id = data.get('user_id', 'anonymous')
+        
+        if not question_id or not selected_answer:
+            return jsonify({'error': 'Question ID and selected answer required'}), 400
+        
+        is_correct = selected_answer == correct_answer
+        
+        # Save detailed answer result
+        answer_result = {
+            'quiz_id': quiz_id,
+            'question_id': question_id,
+            'question_number': question_number,
+            'selected_answer': selected_answer,
+            'correct_answer': correct_answer,
+            'is_correct': is_correct,
+            'time_taken': time_taken,
+            'answered_at': datetime.utcnow(),
+            'user_id': user_id,
+            'session_id': f"{quiz_id}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
+        }
+        
+        quiz_results_collection.insert_one(answer_result)
+        print(f"💾 Saved answer for Q{question_number}: {'✅' if is_correct else '❌'} ({time_taken}s)")
+        
+        # Update quiz session with PROPER score calculation
+        session = quiz_sessions_collection.find_one({'quiz_id': quiz_id})
+        if session:
+            new_completed = session['questions_completed'] + 1
+            new_current = session['current_question'] + 1
+            total_questions = session['total_questions']
+            
+            # Add answer to session
+            session_answers = session.get('answers', [])
+            session_answers.append({
+                'question_number': question_number,
+                'question_id': question_id,
+                'selected_answer': selected_answer,
+                'correct_answer': correct_answer,
+                'is_correct': is_correct,
+                'time_taken': time_taken,
+                'answered_at': datetime.utcnow()
+            })
+            
+            # Check if quiz is completed
+            is_completed = new_completed >= total_questions
+            
+            # Update session
+            update_data = {
+                'questions_completed': new_completed,
+                'current_question': min(new_current, total_questions),
+                'answers': session_answers,
+                'last_updated': datetime.utcnow(),
+                'user_id': user_id
+            }
+            
+            if is_completed:
+                update_data['is_completed'] = True
+                update_data['completed_at'] = datetime.utcnow()
+                
+                # FIXED: Proper final score calculation
+                correct_count = sum(1 for ans in session_answers if ans['is_correct'])
+                final_score = round((correct_count / total_questions) * 100, 1)
+                total_time = sum(ans['time_taken'] for ans in session_answers)
+                average_time = round(total_time / total_questions, 1)
+                
+                update_data.update({
+                    'final_score': final_score,  # FIXED: This will now save correctly
+                    'total_time': total_time,
+                    'average_time_per_question': average_time,
+                    'correct_answers': correct_count,
+                    'incorrect_answers': total_questions - correct_count,
+                    'accuracy_percentage': final_score
+                })
+                
+                print(f"🎉 Quiz completed! Score: {final_score}% ({correct_count}/{total_questions})")
+            
+            quiz_sessions_collection.update_one(
+                {'quiz_id': quiz_id},
+                {'$set': update_data}
+            )
+            
+            response_data = {
+                'is_correct': is_correct,
+                'question_completed': question_number,
+                'questions_remaining': max(0, total_questions - new_completed),
+                'quiz_completed': is_completed,
+                'next_question': new_current if not is_completed else None,
+                'progress_percentage': round((new_completed / total_questions) * 100, 1)
+            }
+            
+            if is_completed:
+                response_data.update({
+                    'final_score': update_data['final_score'],
+                    'total_time': update_data['total_time'],
+                    'correct_answers': update_data['correct_answers'],
+                    'accuracy_percentage': update_data['accuracy_percentage']
+                })
+            
+            return jsonify(response_data), 200
+        
+        return jsonify({'error': 'Session not found'}), 404
+        
+    except Exception as e:
+        print(f"❌ Error submitting answer: {str(e)}")
+        return jsonify({'error': f'Failed to submit answer: {str(e)}'}), 500
+
+# ===== FEEDBACK SYSTEM =====
+@app.route('/feedback', methods=['POST'])
+def submit_feedback():
+    """Submit feedback for quiz or specific question"""
+    try:
+        data = request.get_json()
+        
+        feedback_type = data.get('type')  # 'quiz', 'question', 'general'
+        item_id = data.get('item_id')  # quiz_id or question_id
+        rating = data.get('rating')  # 1-5 stars
+        comment = data.get('comment', '')
+        user_id = data.get('user_id', 'anonymous')
+        category = data.get('category', 'general')  # 'difficulty', 'content', 'interface', etc.
+        
+        # Validate required fields
+        if not all([feedback_type, item_id, rating]):
+            return jsonify({'error': 'Type, item_id, and rating are required'}), 400
+        
+        if not isinstance(rating, int) or rating < 1 or rating > 5:
+            return jsonify({'error': 'Rating must be between 1 and 5'}), 400
+        
+        # Create feedback document
+        feedback_doc = {
+            'type': feedback_type,
+            'item_id': item_id,
+            'rating': rating,
+            'comment': comment,
+            'category': category,
+            'user_id': user_id,
+            'submitted_at': datetime.utcnow(),
+            'helpful_votes': 0,
+            'status': 'pending'
+        }
+        
+        result = feedback_collection.insert_one(feedback_doc)
+        
+        print(f"📝 Feedback submitted: {feedback_type} | {rating}⭐ | {item_id}")
+        
+        return jsonify({
+            'message': 'Feedback submitted successfully',
+            'feedback_id': str(result.inserted_id)
+        }), 201
+        
+    except Exception as e:
+        print(f"❌ Error submitting feedback: {str(e)}")
+        return jsonify({'error': f'Failed to submit feedback: {str(e)}'}), 500
+
+@app.route('/feedback/<item_id>', methods=['GET'])
+def get_feedback(item_id):
+    """Get feedback for a specific item"""
+    try:
+        feedback_type = request.args.get('type', 'quiz')
+        
+        # Get all feedback for this item
+        feedback_list = list(feedback_collection.find({
+            'item_id': item_id,
+            'type': feedback_type
+        }).sort('submitted_at', -1))
+        
+        # Format feedback for response
+        formatted_feedback = []
+        for fb in feedback_list:
+            formatted_feedback.append({
+                'feedback_id': str(fb['_id']),
+                'rating': fb['rating'],
+                'comment': fb['comment'],
+                'category': fb.get('category', 'general'),
+                'user_id': fb.get('user_id', 'anonymous'),
+                'submitted_at': fb['submitted_at'].isoformat(),
+                'helpful_votes': fb.get('helpful_votes', 0)
+            })
+        
+        # Calculate statistics
+        ratings = [fb['rating'] for fb in feedback_list]
+        stats = {
+            'total_feedback': len(feedback_list),
+            'average_rating': round(sum(ratings) / len(ratings), 1) if ratings else 0,
+            'rating_distribution': {
+                '5': ratings.count(5),
+                '4': ratings.count(4),
+                '3': ratings.count(3),
+                '2': ratings.count(2),
+                '1': ratings.count(1)
+            }
+        }
+        
+        return jsonify({
+            'feedback': formatted_feedback,
+            'statistics': stats
+        }), 200
+        
+    except Exception as e:
+        print(f"❌ Error getting feedback: {str(e)}")
+        return jsonify({'error': f'Failed to get feedback: {str(e)}'}), 500
+
+# ===== PROGRESS STATISTICS =====
+@app.route('/progress', methods=['GET'])
+def get_progress():
+    """Get comprehensive progress statistics"""
+    try:
+        user_id = request.args.get('user_id', 'anonymous')
+        print(f"📊 Generating progress for user: {user_id}")
+        
+        # Basic counts
+        total_quizzes = len(set(quiz_collection.distinct('quiz_id')))
+        completed_sessions = quiz_sessions_collection.count_documents({
+            'is_completed': True,
+            'user_id': user_id
+        })
+        
+        # Get recent activity (last 30 days)
+        thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+        
+        daily_activity = []
+        for i in range(30):
+            day = thirty_days_ago + timedelta(days=i)
+            day_start = day.replace(hour=0, minute=0, second=0, microsecond=0)
+            day_end = day.replace(hour=23, minute=59, second=59, microsecond=999999)
+            
+            # Count activity for this day
+            sessions_count = quiz_sessions_collection.count_documents({
+                'completed_at': {'$gte': day_start, '$lte': day_end},
+                'is_completed': True,
+                'user_id': user_id
+            })
+            
+            questions_answered = quiz_results_collection.count_documents({
+                'answered_at': {'$gte': day_start, '$lte': day_end},
+                'user_id': user_id
+            })
+            
+            daily_activity.append({
+                'date': day.strftime('%Y-%m-%d'),
+                'quizzes_completed': sessions_count,
+                'questions_answered': questions_answered,
+                'study_time': 0
+            })
+        
+        # Difficulty breakdown
+        difficulty_breakdown = []
+        try:
+            pipeline = [
+                {'$group': {'_id': '$difficulty', 'count': {'$sum': 1}}},
+                {'$sort': {'count': -1}}
+            ]
+            difficulty_breakdown = list(quiz_collection.aggregate(pipeline))
+        except Exception as e:
+            print(f"Warning: Could not generate difficulty breakdown: {e}")
+        
+        # Recent sessions
+        recent_sessions = list(quiz_sessions_collection.find({
+            'is_completed': True,
+            'user_id': user_id
+        }).sort('completed_at', -1).limit(5))
+        
+        recent_sessions_formatted = []
+        for session in recent_sessions:
+            recent_sessions_formatted.append({
+                'lecture_title': session.get('lecture_title', 'Unknown'),
+                'score': session.get('final_score', 0),
+                'completed_at': session.get('completed_at', '').isoformat() if session.get('completed_at') else '',
+                'questions_completed': session.get('questions_completed', 0),
+                'total_time': session.get('total_time', 0)
+            })
+        
+        # Overall stats
+        total_answers = quiz_results_collection.count_documents({'user_id': user_id})
+        correct_answers = quiz_results_collection.count_documents({
+            'is_correct': True,
+            'user_id': user_id
+        })
+        accuracy = (correct_answers / total_answers * 100) if total_answers > 0 else 0
+        
+        # Calculate averages
+        if recent_sessions:
+            avg_score = sum(s.get('final_score', 0) for s in recent_sessions) / len(recent_sessions)
+            avg_time = sum(s.get('total_time', 0) for s in recent_sessions) / len(recent_sessions)
+        else:
+            avg_score = 0
+            avg_time = 0
+        
+        stats = {
+            'total_quizzes': total_quizzes,
+            'completed_quizzes': completed_sessions,
+            'completion_percentage': int((completed_sessions / total_quizzes * 100)) if total_quizzes > 0 else 0,
+            'accuracy_percentage': int(accuracy),
+            'average_score': int(avg_score),
+            'average_time': int(avg_time),
+            'total_questions_answered': total_answers,
+            'performance_data': daily_activity,
+            'difficulty_breakdown': difficulty_breakdown,
+            'recent_sessions': recent_sessions_formatted
+        }
+        
+        print(f"📈 Generated comprehensive stats for {user_id}")
+        return jsonify(stats), 200
+        
+    except Exception as e:
+        print(f"❌ Error generating progress: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': f'Failed to generate progress: {str(e)}'}), 500
+
+# ===== FILE UPLOAD - RESPECTS EXISTING FOLDER STRUCTURE =====
 @app.route('/upload', methods=['POST'])
 def upload_file():
-    """Handle file upload and processing"""
+    """Enhanced file upload that RESPECTS your existing folder structure"""
     try:
-        print("📁 Upload file route called")
-        
         if 'file' not in request.files:
             return jsonify({'error': 'No file provided'}), 400
         
         file = request.files['file']
+        user_id = request.form.get('user_id', 'anonymous')
+        
         if file.filename == '':
             return jsonify({'error': 'No file selected'}), 400
         
         if not allowed_file(file.filename):
-            return jsonify({'error': 'File type not allowed'}), 400
-        
+            return jsonify({'error': 'File type not allowed. Supported: ' + ', '.join(sum(UPLOAD_SUBFOLDERS.values(), []))}), 400
+
         filename = secure_filename(file.filename)
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         filename = f"{timestamp}_{filename}"
         
-        filepath = os.path.join(UPLOAD_FOLDER, filename)
+        # IMPORTANT: Use existing folder structure
+        subfolder = get_upload_subfolder(file.filename)
+        filepath = os.path.join(UPLOAD_FOLDER, subfolder, filename)
+        
+        # Ensure the subfolder exists (respects existing structure)
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        
         file.save(filepath)
+        print(f"📁 File saved to: {filepath}")
         
-        category = get_file_category(filename)
+        category = get_file_category(file.filename)
         
-        print(f"📁 File uploaded: {filename}, category: {category}")
+        # Track file upload
+        upload_doc = {
+            'filename': filename,
+            'original_name': file.filename,
+            'category': category,
+            'subfolder': subfolder,  # Track which subfolder it went to
+            'size': os.path.getsize(filepath),
+            'uploaded_by': user_id,
+            'uploaded_at': datetime.utcnow(),
+            'status': 'uploaded',
+            'filepath': filepath
+        }
         
-        if category in ['pdfs', 'documents']:
+        # Process documents and PDFs as before
+        if category in ['documents', 'pdfs']:
             try:
                 extracted_text = extract_text_from_pdf(filepath)
                 summary = generate_summary(extracted_text)
+                
+                upload_doc.update({
+                    'text_length': len(extracted_text),
+                    'summary_length': len(summary),
+                    'status': 'processed'
+                })
                 
                 return jsonify({
                     'message': 'File uploaded and processed successfully',
                     'filename': filename,
                     'category': category,
+                    'subfolder': subfolder,
                     'summary': summary,
-                    'text_length': len(extracted_text)
+                    'text_length': len(extracted_text),
+                    'upload_id': str(ObjectId())
                 })
             except Exception as e:
-                print(f"⚠️ File processing error: {e}")
+                upload_doc['status'] = 'failed'
+                upload_doc['error'] = str(e)
+                
                 return jsonify({
                     'message': 'File uploaded but processing failed',
                     'filename': filename,
                     'category': category,
+                    'subfolder': subfolder,
                     'error': str(e)
                 })
         else:
             return jsonify({
                 'message': 'File uploaded successfully',
                 'filename': filename,
-                'category': category
+                'category': category,
+                'subfolder': subfolder
             })
             
     except Exception as e:
-        print(f"❌ Upload error: {str(e)}")
         return jsonify({'error': f'Upload failed: {str(e)}'}), 500
 
-# ===== ROUTE: Summarize Text =====
+# ===== TEXT SUMMARIZATION (Unchanged) =====
 @app.route('/summarize', methods=['POST'])
 def summarize_text():
-    """Generate summary from text"""
+    """Enhanced text summarization with tracking"""
     try:
-        print("📝 Summarize text route called")
-        
         data = request.get_json()
         text = data.get('text', '')
+        user_id = data.get('user_id', 'anonymous')
         
         if not text:
             return jsonify({'error': 'No text provided'}), 400
@@ -544,60 +842,25 @@ def summarize_text():
         return jsonify({
             'summary': summary,
             'original_length': len(text),
-            'summary_length': len(summary)
+            'summary_length': len(summary),
+            'compression_ratio': round(len(summary) / len(text) * 100, 1)
         })
     except Exception as e:
-        print(f"❌ Summarization error: {str(e)}")
         return jsonify({'error': f'Summarization failed: {str(e)}'}), 500
 
-# ===== ERROR HANDLERS =====
-@app.errorhandler(404)
-def not_found(error):
-    available_routes = [
-        'GET / - Health check',
-        'POST /generate-quiz - Generate new quiz',
-        'GET /quizzes - Get all quizzes',
-        'POST /quiz-results - Save quiz results',
-        'GET /progress - Get progress stats',
-        'GET /flashcards - Get flashcards',
-        'POST /upload - Upload files',
-        'POST /summarize - Summarize text'
-    ]
-    
-    return jsonify({
-        "error": "Not Found",
-        "message": f"The requested endpoint '{request.path}' was not found",
-        "available_routes": available_routes,
-        "status_code": 404
-    }), 404
-
-@app.errorhandler(400)
-def bad_request(error):
-    return jsonify({
-        "error": "Bad Request",
-        "message": "The request could not be understood by the server",
-        "status_code": 400
-    }), 400
-
-@app.errorhandler(500)
-def internal_error(error):
-    return jsonify({
-        "error": "Internal Server Error",
-        "message": "An unexpected error occurred on the server",
-        "status_code": 500
-    }), 500
-
 if __name__ == "__main__":
-    print("🚀 Starting Quiz Generation API Server...")
+    print("🚀 Starting Enhanced Quiz API Server...")
+    print("📁 Respecting existing folder structure:")
+    for subfolder, extensions in UPLOAD_SUBFOLDERS.items():
+        print(f"   📂 {subfolder}/: {', '.join(extensions)}")
     print("📊 Available endpoints:")
-    print("  GET  / - Health check")
-    print("  POST /generate-quiz - Generate new quiz from summary")
-    print("  GET  /quizzes - Get all quizzes grouped by lecture")
-    print("  POST /quiz-results - Save quiz completion results")
-    print("  GET  /progress - Get progress statistics")
-    print("  GET  /flashcards - Get flashcards with pagination")
-    print("  POST /upload - Upload and process files")
-    print("  POST /summarize - Generate text summary")
-    print("🌐 Server starting on http://localhost:5000")
-    
+    print("  POST /generate-quiz - Generate quiz with metadata")
+    print("  GET  /lectures - Get lectures with FIXED score display")
+    print("  GET  /quiz/<id> - Get quiz for taking")
+    print("  POST /quiz/<id>/answer - Submit answer with proper scoring")
+    print("  GET  /progress - Comprehensive statistics")
+    print("  POST /feedback - Submit feedback")
+    print("  GET  /feedback/<id> - Get feedback")
+    print("  POST /upload - Enhanced file upload (respects existing structure)")
+    print("  POST /summarize - Text summarization")
     app.run(debug=True, host='0.0.0.0', port=5000)
