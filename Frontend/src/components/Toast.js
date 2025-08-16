@@ -1,77 +1,36 @@
 // Frontend/src/components/Toast.js
-import React, { useEffect } from "react";
-import "./Toast.css";
+import React, { useState, useCallback } from 'react';
+import './Toast.css';
 
-const Toast = ({ message, type = "success", duration = 3000, onClose }) => {
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      onClose();
-    }, duration);
-
-    return () => clearTimeout(timer);
-  }, [duration, onClose]);
-
-  const getIcon = () => {
-    switch (type) {
-      case "success":
-        return "✅";
-      case "error":
-        return "❌";
-      case "warning":
-        return "⚠️";
-      case "info":
-        return "ℹ️";
-      default:
-        return "✅";
-    }
-  };
-
-  return (
-    <div className={`toast toast-${type}`}>
-      <div className="toast-content">
-        <span className="toast-icon">{getIcon()}</span>
-        <span className="toast-message">{message}</span>
+// Toast notification component
+export const ToastContainer = ({ toasts, removeToast }) => (
+  <div className="toast-container">
+    {toasts.map(toast => (
+      <div key={toast.id} className={`toast toast-${toast.type}`}>
+        <span>{toast.message}</span>
+        <button onClick={() => removeToast(toast.id)}>×</button>
       </div>
-      <button className="toast-close" onClick={onClose}>
-        ×
-      </button>
-    </div>
-  );
-};
-
-// Toast Container Component
-export const ToastContainer = ({ toasts, removeToast }) => {
-  return (
-    <div className="toast-container">
-      {toasts.map((toast) => (
-        <Toast
-          key={toast.id}
-          message={toast.message}
-          type={toast.type}
-          duration={toast.duration}
-          onClose={() => removeToast(toast.id)}
-        />
-      ))}
-    </div>
-  );
-};
+    ))}
+  </div>
+);
 
 // Custom hook for managing toasts
 export const useToast = () => {
-  const [toasts, setToasts] = React.useState([]);
+  const [toasts, setToasts] = useState([]);
 
-  const addToast = (message, type = "success", duration = 3000) => {
+  const addToast = useCallback((message, type = 'success') => {
     const id = Date.now() + Math.random();
-    const newToast = { id, message, type, duration };
+    setToasts(prev => [...prev, { id, message, type }]);
     
-    setToasts((prevToasts) => [...prevToasts, newToast]);
-  };
+    // Auto-remove toast after 5 seconds
+    setTimeout(() => {
+      setToasts(prev => prev.filter(toast => toast.id !== id));
+    }, 5000);
+  }, []);
 
-  const removeToast = (id) => {
-    setToasts((prevToasts) => prevToasts.filter((toast) => toast.id !== id));
-  };
+  const removeToast = useCallback((id) => {
+    setToasts(prev => prev.filter(toast => toast.id !== id));
+  }, []);
 
   return { toasts, addToast, removeToast };
 };
-
-export default Toast;
