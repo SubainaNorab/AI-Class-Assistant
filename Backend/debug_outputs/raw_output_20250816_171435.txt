@@ -1,0 +1,33 @@
+{
+  "quiz": [
+    {
+      "question": "What is the backend in the context of a website or application?",
+      "options": ["The front-end that users see and interact with", "The behind-the-scenes part that handles data processing, storage, and logic", "A marketing tool to attract users", "An aesthetic design element"],
+      "answer": "The behind-the-scenes part that handles data processing, storage, and logic"
+    },
+    {
+      "question": "Which of the following does the backend manage in an application?",
+      "options": ["User interfaces", "Databases and server interactions", "Graphic design elements", "Social media campaigns"],
+      "answer": "Databases and server interactions"
+    },
+    {
+      "question": "What is the relationship between the backend and front-end?",
+      "options": ["They are independent of each other", "The backend delivers data to the front-end", "The front-end controls the backend", "There is no relationship between them"],
+      "answer": "The backend delivers data to the front-end"
+    }
+  ],
+  "flashcards": [
+    {
+      "question": "What is another name for the backend?",
+      "answer": "The server-side"
+    },
+    {
+      "question": "What does the backend ensure in an application?",
+      "answer": "The application functions correctly"
+    },
+    {
+      "question": "What does the backend interact with to deliver a seamless experience?",
+      "answer": "The front-end"
+    }
+  ]
+}

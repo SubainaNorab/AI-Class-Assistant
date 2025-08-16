@@ -342,3 +342,109 @@
     font-size: 0.85rem;
   }
 }
+
+
+
+
+
+.required {
+  color: #ef4444;
+}
+
+.error-message {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #dc2626;
+}
+
+.error-close {
+  background: none;
+  border: none;
+  color: #dc2626;
+  cursor: pointer;
+  margin-left: auto;
+  font-size: 1.2rem;
+}
+
+.category-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.category-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.category-option:hover {
+  border-color: #d1d5db;
+  background-color: #f9fafb;
+}
+
+.category-option.selected {
+  border-color: #3b82f6;
+  background-color: #eff6ff;
+}
+
+.category-option input[type="radio"] {
+  margin-top: 2px;
+}
+
+.category-content {
+  flex: 1;
+}
+
+.category-label {
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 2px;
+}
+
+.category-description {
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.difficulty-badge[data-difficulty="Easy"] {
+  color: #10b981;
+}
+
+.difficulty-badge[data-difficulty="Medium"] {
+  color: #f59e0b;
+}
+
+.difficulty-badge[data-difficulty="Hard"] {
+  color: #ef4444;
+}
+
+.score-badge {
+  font-weight: 600;
+}
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid transparent;
+  border-top: 2px solid currentColor;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  display: inline-block;
+  margin-right: 8px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

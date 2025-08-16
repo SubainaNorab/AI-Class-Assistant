@@ -1,0 +1,33 @@
+{
+  "quiz": [
+    {
+      "question": "What does backend development handle in web applications?",
+      "options": ["Frontend design", "Server-side logic", "Content creation", "User interface design"],
+      "answer": "Server-side logic"
+    },
+    {
+      "question": "Which of the following is a responsibility of backend development?",
+      "options": ["Managing databases", "Creating APIs", "Designing user interfaces", "Writing unit tests"],
+      "answer": "Managing databases"
+    },
+    {
+      "question": "What is the role of backend development in powering web applications?",
+      "options": ["Providing visual elements", "Handling server-side logic", "Managing user interactions", "Optimizing performance"],
+      "answer": "Handling server-side logic"
+    }
+  ],
+  "flashcards": [
+    {
+      "question": "What is backend development?",
+      "answer": "Backend development handles the server-side logic, database interactions, and application programming interfaces (APIs) that power web applications."
+    },
+    {
+      "question": "What are some responsibilities of backend development?",
+      "answer": "Backend development is responsible for server-side logic, database interactions, and APIs in web applications."
+    },
+    {
+      "question": "Why is backend development important in web applications?",
+      "answer": "Backend development powers web applications by handling server-side logic, managing databases, and creating APIs."
+    }
+  ]
+}

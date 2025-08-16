@@ -185,9 +185,62 @@ const QuizListPage = () => {
     await fetchLectures();
   };
 
+  // Handle opening feedback modal with validation
+  const handleOpenFeedback = (lecture) => {
+    console.log('🔍 Attempting to open feedback for lecture:', lecture);
+    
+    // Validate lecture object
+    if (!lecture) {
+      console.error('❌ Lecture object is null/undefined');
+      addToast('❌ Error: Unable to get lecture data', 'error');
+      return;
+    }
+    
+    // Check required fields
+    if (!lecture.quiz_id) {
+      console.error('❌ Lecture missing quiz_id:', lecture);
+      addToast('❌ Error: Invalid lecture data - missing quiz ID', 'error');
+      return;
+    }
+
+    if (!lecture.lecture_title) {
+      console.error('❌ Lecture missing title:', lecture);
+      addToast('❌ Error: Invalid lecture data - missing title', 'error');
+      return;
+    }
+    
+    console.log('✅ Opening feedback modal for:', lecture.lecture_title);
+    setSelectedLectureForFeedback(lecture);
+    setShowFeedbackModal(true);
+  };
+
+  // Handle opening stats modal with validation
+  const handleOpenStats = (lecture) => {
+    console.log('🔍 Attempting to open stats for lecture:', lecture);
+    
+    if (!lecture) {
+      console.error('❌ Lecture object is null/undefined');
+      addToast('❌ Error: Unable to get lecture data', 'error');
+      return;
+    }
+    
+    console.log('✅ Opening stats modal for:', lecture.lecture_title);
+    setSelectedLectureForStats(lecture);
+    setShowStatsModal(true);
+  };
+
   // Handle feedback submission
   const handleFeedbackSubmit = async (feedbackData) => {
     try {
+      // Additional safety check before submitting
+      if (!selectedLectureForFeedback || !selectedLectureForFeedback.quiz_id) {
+        console.error('❌ No valid lecture selected for feedback');
+        addToast('❌ Error: No quiz selected for feedback', 'error');
+        return;
+      }
+
+      console.log('📤 Submitting feedback:', feedbackData, 'for lecture:', selectedLectureForFeedback.quiz_id);
+
       const response = await fetch('http://localhost:5000/feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -203,6 +256,7 @@ const QuizListPage = () => {
 
       if (response.ok) {
         const result = await response.json();
+        console.log('✅ Feedback submitted successfully:', result);
         addToast('✅ Feedback submitted successfully!', 'success');
         setShowFeedbackModal(false);
         setSelectedLectureForFeedback(null);
@@ -210,7 +264,9 @@ const QuizListPage = () => {
         // Refresh lectures to show updated ratings
         await fetchLectures();
       } else {
-        addToast('❌ Failed to submit feedback', 'error');
+        const errorData = await response.json();
+        console.error('❌ Feedback submission failed:', errorData);
+        addToast(`❌ Failed to submit feedback: ${errorData.error || 'Unknown error'}`, 'error');
       }
     } catch (err) {
       console.error('❌ Error submitting feedback:', err);
@@ -411,27 +467,21 @@ const QuizListPage = () => {
           ) : (
             <div className="lectures-grid">
               {lectures.map((lecture) => (
-                <div key={lecture.quiz_id} className="lecture-card">
+                <div key={lecture.quiz_id || lecture.id} className="lecture-card">
                   {/* Lecture Header */}
                   <div className="lecture-card-header">
-                    <h2 className="lecture-title">{lecture.lecture_title}</h2>
+                    <h2 className="lecture-title">{lecture.lecture_title || 'Untitled Quiz'}</h2>
                     <div className="lecture-actions">
                       <button
                         className="action-btn stats-btn"
-                        onClick={() => {
-                          setSelectedLectureForStats(lecture);
-                          setShowStatsModal(true);
-                        }}
+                        onClick={() => handleOpenStats(lecture)}
                         title="View detailed statistics"
                       >
                         📊
                       </button>
                       <button
                         className="action-btn feedback-btn"
-                        onClick={() => {
-                          setSelectedLectureForFeedback(lecture);
-                          setShowFeedbackModal(true);
-                        }}
+                        onClick={() => handleOpenFeedback(lecture)}
                         title="Rate this quiz"
                       >
                         ⭐
@@ -441,13 +491,13 @@ const QuizListPage = () => {
 
                   <div className="lecture-meta">
                     <span className="question-count">
-                      📝 {lecture.total_questions} questions
+                      📝 {lecture.total_questions || 0} questions
                     </span>
                     <span 
                       className="difficulty-badge"
                       style={{ backgroundColor: getDifficultyColor(lecture.difficulty) }}
                     >
-                      {lecture.difficulty}
+                      {lecture.difficulty || 'Medium'}
                     </span>
                     {lecture.stats?.attempts > 0 && (
                       <span className="attempts-badge">
@@ -457,18 +507,20 @@ const QuizListPage = () => {
                   </div>
 
                   {/* Progress Section */}
-                  <div className="progress-section">
-                    <div className="progress-info">
-                      <span>Progress: {lecture.progress.completed}/{lecture.progress.total} questions</span>
-                      <span>{lecture.progress.percentage}% Complete</span>
+                  {lecture.progress && (
+                    <div className="progress-section">
+                      <div className="progress-info">
+                        <span>Progress: {lecture.progress.completed || 0}/{lecture.progress.total || lecture.total_questions || 0} questions</span>
+                        <span>{lecture.progress.percentage || 0}% Complete</span>
+                      </div>
+                      <div className="progress-bar">
+                        <div 
+                          className="progress-fill"
+                          style={{ width: `${lecture.progress.percentage || 0}%` }}
+                        ></div>
+                      </div>
                     </div>
-                    <div className="progress-bar">
-                      <div 
-                        className="progress-fill"
-                        style={{ width: `${lecture.progress.percentage}%` }}
-                      ></div>
-                    </div>
-                  </div>
+                  )}
 
                   {/* Performance Stats */}
                   {lecture.stats?.attempts > 0 && (
@@ -500,8 +552,8 @@ const QuizListPage = () => {
                   {/* Topic Tags */}
                   {lecture.topic_tags && lecture.topic_tags.length > 0 && (
                     <div className="topic-tags">
-                      {lecture.topic_tags.map(tag => (
-                        <span key={tag} className="topic-tag">
+                      {lecture.topic_tags.map((tag, index) => (
+                        <span key={`${tag}-${index}`} className="topic-tag">
                           🏷️ {tag}
                         </span>
                       ))}
@@ -510,7 +562,7 @@ const QuizListPage = () => {
 
                   {/* Quiz Status */}
                   <div className="quiz-status">
-                    {lecture.progress.is_completed ? (
+                    {lecture.progress?.is_completed ? (
                       <div className="completed-status">
                         <span className="completion-badge">✅ Completed</span>
                         <span 
@@ -520,11 +572,11 @@ const QuizListPage = () => {
                           Final Score: {lecture.progress.final_score ? Math.round(lecture.progress.final_score) : 'N/A'}%
                         </span>
                       </div>
-                    ) : lecture.progress.completed > 0 ? (
+                    ) : lecture.progress?.completed > 0 ? (
                       <div className="in-progress-status">
                         <span className="progress-badge">🔄 In Progress</span>
                         <span className="current-question">
-                          Continue from question {lecture.progress.current_question}
+                          Continue from question {lecture.progress.current_question || (lecture.progress.completed + 1)}
                         </span>
                       </div>
                     ) : (
@@ -536,12 +588,12 @@ const QuizListPage = () => {
 
                   {/* Action Button */}
                   <button
-                    className={`quiz-action-btn ${lecture.progress.is_completed ? 'retake' : 'start'}`}
+                    className={`quiz-action-btn ${lecture.progress?.is_completed ? 'retake' : 'start'}`}
                     onClick={() => handleStartQuiz(lecture)}
                   >
-                    {lecture.progress.is_completed 
+                    {lecture.progress?.is_completed 
                       ? '🔄 Retake Quiz' 
-                      : lecture.progress.completed > 0 
+                      : lecture.progress?.completed > 0 
                         ? '▶️ Continue Quiz'
                         : '🚀 Start Quiz'
                     }
@@ -550,9 +602,9 @@ const QuizListPage = () => {
                   {/* Footer */}
                   <div className="lecture-footer">
                     <span className="creation-date">
-                      📅 Created: {new Date(lecture.created_at).toLocaleDateString()}
+                      📅 Created: {lecture.created_at ? new Date(lecture.created_at).toLocaleDateString() : 'Unknown'}
                     </span>
-                    {lecture.progress.last_attempt && (
+                    {lecture.progress?.last_attempt && (
                       <span className="last-attempt">
                         🕒 Last attempt: {new Date(lecture.progress.last_attempt).toLocaleDateString()}
                       </span>

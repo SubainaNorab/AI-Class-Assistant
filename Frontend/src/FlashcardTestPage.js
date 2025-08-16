@@ -1,7 +1,6 @@
-// Frontend/src/FlashcardTestPage.js
 import React, { useState } from "react";
 import FlashcardViewer from './components/FlashcardViewer';
-import FeedbackModal from './components/Feedbackmodel';
+import FeedbackModal from './components/FeedbackModal'; // Fixed typo in import
 import { ToastContainer, useToast } from './components/Toast';
 import "./FlashcardTestPage.css";
 
@@ -34,18 +33,34 @@ const FlashcardTestPage = () => {
 
   const openFeedbackModal = () => {
     // Use the first flashcard ID or generate a session ID
-    setCurrentFlashcardId("flashcard_session_" + Date.now());
+    setCurrentFlashcardId(flashcards[0]?.id || "flashcard_session_" + Date.now());
     setShowFeedbackModal(true);
   };
 
   const generateQuizAndFlashcards = async () => {
-    // Placeholder for actual quiz generation
-    addToast("Quiz and flashcards generated successfully! 🎉", "success");
-    
-    // Auto-show feedback modal after generation
-    setTimeout(() => {
+    try {
+      // Simulate API call for quiz generation
+      addToast("Generating new content...", "info");
+      
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Add new flashcard to demonstrate generation
+      const newFlashcard = {
+        id: `flashcard_${flashcards.length + 1}`,
+        question: `New question about topic ${flashcards.length + 1}`,
+        answer: `Answer ${flashcards.length + 1}`
+      };
+      
+      setFlashcards(prev => [...prev, newFlashcard]);
+      addToast("Quiz and flashcards generated successfully! 🎉", "success");
+      
+      // Auto-show feedback modal after generation
       openFeedbackModal();
-    }, 1000);
+    } catch (error) {
+      addToast("Failed to generate content. Please try again.", "error");
+      console.error("Generation error:", error);
+    }
   };
 
   return (
@@ -66,6 +81,7 @@ const FlashcardTestPage = () => {
           <button
             className="generate-button"
             onClick={generateQuizAndFlashcards}
+            aria-label="Generate new flashcard content"
           >
             ⚡ Generate New Content
           </button>
@@ -73,6 +89,7 @@ const FlashcardTestPage = () => {
           <button
             className="feedback-button"
             onClick={openFeedbackModal}
+            aria-label="Provide feedback"
           >
             ⭐ Give Feedback
           </button>
@@ -106,13 +123,27 @@ const FlashcardTestPage = () => {
         </div>
       </div>
 
-      <FeedbackModal
-        visible={showFeedbackModal}
-        onClose={() => setShowFeedbackModal(false)}
-        type="flashcard"
-        itemId={currentFlashcardId}
-        onSuccess={handleFeedbackSuccess}
-      />
+      {showFeedbackModal && (
+        <FeedbackModal
+          lecture={{
+            quiz_id: currentFlashcardId,
+            lecture_title: "Flashcard Session",
+            total_questions: flashcards.length,
+            difficulty: "Mixed"
+          }}
+          onSubmit={async (feedbackData) => {
+            try {
+              // Simulate API submission
+              await new Promise(resolve => setTimeout(resolve, 500));
+              handleFeedbackSuccess("Thank you for your feedback! 💖");
+              setShowFeedbackModal(false);
+            } catch (error) {
+              addToast("Failed to submit feedback", "error");
+            }
+          }}
+          onClose={() => setShowFeedbackModal(false)}
+        />
+      )}
     </div>
   );
 };
