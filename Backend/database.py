@@ -7,8 +7,10 @@ client = MongoClient("mongodb+srv://AI_user:9909455@cluster0.b5gy0p8.mongodb.net
 db = client["class_assistant"]  # ✅ based on your screenshot
 quiz_collection = db["quizzes"]
 flashcard_collection = db["flashcards"]
+user_collection = db["users"]
 
 flashcard_collection.create_index([("difficulty", ASCENDING)])
 flashcard_collection.create_index([("topic_tags", ASCENDING)])
 
 
+user_collection.create_index([("email", ASCENDING)], unique=True)

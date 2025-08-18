@@ -12,9 +12,20 @@ import os
 import math
 from bson import ObjectId
 import uuid
+from dotenv import load_dotenv
+from flask_jwt_extended import JWTManager
 
 app = Flask(__name__)
 CORS(app)
+load_dotenv()
+
+# JWT Configuration
+app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "fallback-secret")
+app.config["JWT_ACCESS_TOKEN_EXPIRES"] = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRES", 3600))
+jwt = JWTManager(app)
+
+from routes.user_routes import user_bp
+app.register_blueprint(user_bp)
 
 # Collections for comprehensive tracking
 quiz_results_collection = db["quiz_results"]
@@ -847,6 +858,10 @@ def summarize_text():
         })
     except Exception as e:
         return jsonify({'error': f'Summarization failed: {str(e)}'}), 500
+
+
+
+
 
 if __name__ == "__main__":
     print("🚀 Starting Enhanced Quiz API Server...")
