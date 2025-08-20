@@ -1,4 +1,5 @@
-// Frontend/src/components/LoginPage.js
+// Frontend/src/components/LoginPage.js 
+
 
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
@@ -52,20 +53,6 @@ const LoginPage = () => {
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
-  };
-
-  // Demo account quick login handlers
-  const quickLogin = async (email, password) => {
-    setLoading(true);
-    const result = await login({ email, password });
-    
-    if (result.success) {
-      addToast(`Logged in as ${result.user.full_name}!`, 'success');
-      navigate(from, { replace: true });
-    } else {
-      addToast(result.error || 'Demo login failed', 'error');
-    }
-    setLoading(false);
   };
 
   return (
@@ -138,39 +125,6 @@ const LoginPage = () => {
               Sign up here
             </Link>
           </p>
-        </div>
-
-        {/* Demo Accounts Section - Using Person-2's test accounts */}
-        <div className="demo-accounts">
-          <h3>🧪 Demo Accounts (Person-2 Tests)</h3>
-          <p className="demo-description">Quick login with test accounts created by Person-2</p>
-          <div className="demo-grid">
-            <div className="demo-account">
-              <strong>Test User 1</strong>
-              <p>Email: test1@example.com</p>
-              <button 
-                className="demo-login-btn"
-                onClick={() => quickLogin('test1@example.com', 'password123')}
-                disabled={loading}
-              >
-                Quick Login
-              </button>
-            </div>
-            <div className="demo-account">
-              <strong>Test User 2</strong>
-              <p>Email: test2@example.com</p>
-              <button 
-                className="demo-login-btn"
-                onClick={() => quickLogin('test2@example.com', 'password123')}
-                disabled={loading}
-              >
-                Quick Login
-              </button>
-            </div>
-          </div>
-          <div className="demo-note">
-            💡 If demo accounts don't work, create a new account or ask Person-2 to verify test data
-          </div>
         </div>
       </div>
     </div>
