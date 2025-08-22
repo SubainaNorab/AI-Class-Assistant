@@ -6,11 +6,15 @@ from pymongo import ASCENDING
 
 client = MongoClient("mongodb+srv://AI_user:9909455@cluster0.b5gy0p8.mongodb.net/?retryWrites=true&w=majority")
 db = client["class_assistant"]  
+# Backend/database.py
+def get_db():
+    return db   # return the actual database, not the client
 
 
 quiz_collection = db["quizzes"]
 flashcard_collection = db["flashcards"]
 user_collection = db["users"]
+explanations_collection = db["explanations"]
 
 
 flashcard_collection.create_index([("difficulty", ASCENDING)])

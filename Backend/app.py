@@ -14,6 +14,7 @@ from bson import ObjectId
 import uuid
 from dotenv import load_dotenv
 from flask_jwt_extended import JWTManager
+from routes.explain_routes import explain_bp
 
 app = Flask(__name__)
 CORS(app)
@@ -877,7 +878,8 @@ def summarize_text():
 
 
 
-
+#explainer
+app.register_blueprint(explain_bp)
 
 if __name__ == "__main__":
     print("🚀 Starting Enhanced Quiz API Server...")
