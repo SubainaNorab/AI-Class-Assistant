@@ -27,6 +27,22 @@ jwt = JWTManager(app)
 from routes.user_routes import user_bp
 app.register_blueprint(user_bp)
 
+
+@app.route('/', methods=['GET'])
+def root():
+    return jsonify({
+        'message': '🎓 AI Class Assistant API',
+        'auth_endpoints': {
+            'signup': 'POST /users/signup',
+            'login': 'POST /users/login', 
+            'profile': 'GET /users/me'
+        }
+    }), 200
+
+@app.route('/health', methods=['GET'])
+def health_check():
+    return jsonify({'status': 'healthy', 'authentication': 'enabled'}), 200
+
 # Collections for comprehensive tracking
 quiz_results_collection = db["quiz_results"]
 quiz_sessions_collection = db["quiz_sessions"]
