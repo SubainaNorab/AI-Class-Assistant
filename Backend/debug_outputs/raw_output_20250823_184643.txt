@@ -1,0 +1,33 @@
+{
+  "quiz": [
+    {
+      "question": "What is one of the unique concepts introduced by quantum mechanics?",
+      "options": ["Wave-particle duality", "Classical mechanics", "General relativity", "Quantum entanglement"],
+      "answer": "Wave-particle duality"
+    },
+    {
+      "question": "Which phenomenon does not violate the principle of locality?",
+      "options": ["Superposition", "Quantum tunneling", "Quantum entanglement", "Wave-particle duality"],
+      "answer": "Wave-particle duality"
+    },
+    {
+      "question": "What best describes quantum entanglement?",
+      "options": ["Two particles influencing each other's state instantaneously regardless of distance", "Two particles behaving as waves", "Two particles interacting only through force carriers", "Two particles moving at the speed of light"],
+      "answer": "Two particles influencing each other's state instantaneously regardless of distance"
+    }
+  ],
+  "flashcards": [
+    {
+      "question": "What is wave-particle duality?",
+      "answer": "The concept that all particles exhibit both wave-like and particle-like properties."
+    },
+    {
+      "question": "What is quantum entanglement?",
+      "answer": "A phenomenon where two particles become interconnected and the state of one instantly influences the other, regardless of distance."
+    },
+    {
+      "question": "Which field of physics deals with atomic and subatomic particles?",
+      "answer": "Quantum mechanics"
+    }
+  ]
+}

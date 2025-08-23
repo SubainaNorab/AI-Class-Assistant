@@ -1,4 +1,4 @@
-# Backend/app.py 
+# Backend/app.py - Merged Complete Version
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -27,7 +27,6 @@ jwt = JWTManager(app)
 
 from routes.user_routes import user_bp
 app.register_blueprint(user_bp)
-
 
 @app.route('/', methods=['GET'])
 def root():
@@ -94,10 +93,237 @@ def get_file_category(filename):
     """Get file category based on existing folder structure"""
     return get_upload_subfolder(filename)
 
-# ===== QUIZ GENERATION (Unchanged - respects existing functionality) =====
+# ===== FILE ROUTES =====
+
+@app.route('/uploads', methods=['GET'])
+def get_uploads():
+    """Get files from your existing database structure"""
+    try:
+        user_id = request.args.get('user_id')
+        
+        if not user_id:
+            return jsonify({'error': 'user_id is required'}), 400
+        
+        print(f"📁 Fetching files for user: {user_id}")
+        
+        # Access your existing files collection
+        files_collection = db["files"]
+        
+        # For now, get all files (we'll add user filtering when upload system is fixed)
+        files_cursor = files_collection.find().sort("createdAt", -1)
+        
+        uploads = []
+        for file_doc in files_cursor:
+            file_id = str(file_doc["_id"])
+            
+            # Handle your current data structure
+            upload_item = {
+                "_id": file_id,
+                "original_name": (
+                    file_doc.get("original_name") or 
+                    file_doc.get("filename") or 
+                    f"Document {file_id[-8:]}"  # Use last 8 chars of ID as readable name
+                ),
+                "filename": file_doc.get("filename", f"doc_{file_id[-8:]}.txt"),
+                "category": file_doc.get("category", "documents"),
+                "size": (
+                    file_doc.get("size") or 
+                    len(str(file_doc.get("content", "")))
+                ),
+                "uploaded_at": file_doc.get("uploaded_at") or file_doc.get("createdAt"),
+                "uploaded_by": file_doc.get("uploaded_by", user_id),
+                "status": file_doc.get("status", "uploaded"),
+                "content": file_doc.get("content", ""),
+                "text": file_doc.get("text", file_doc.get("content", "")),
+                "summary": file_doc.get("summary", ""),
+                "text_length": len(str(file_doc.get("content", "")))
+            }
+            uploads.append(upload_item)
+        
+        print(f"✅ Returning {len(uploads)} files")
+        
+        return jsonify({
+            "success": True,
+            "uploads": uploads,
+            "count": len(uploads)
+        }), 200
+        
+    except Exception as e:
+        print(f"❌ Error in /uploads: {str(e)}")
+        return jsonify({"error": str(e), "success": False}), 500
+
+@app.route('/upload', methods=['POST'])
+def upload_file():
+    """Enhanced upload that stores proper metadata in your database"""
+    try:
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file provided'}), 400
+        
+        file = request.files['file']
+        user_id = request.form.get('user_id', 'anonymous')
+        
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+        
+        if not allowed_file(file.filename):
+            return jsonify({'error': f'File type not allowed. Supported: {", ".join(sum(UPLOAD_SUBFOLDERS.values(), []))}'}), 400
+
+        filename = secure_filename(file.filename)
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        unique_filename = f"{timestamp}_{filename}"
+        
+        # Determine file category and subfolder  
+        subfolder = get_upload_subfolder(file.filename)
+        filepath = os.path.join(UPLOAD_FOLDER, subfolder, unique_filename)
+        
+        # Create directory if it doesn't exist
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        
+        # Save file to disk
+        file.save(filepath)
+        print(f"📁 File saved to: {filepath}")
+        
+        category = get_file_category(file.filename)
+        
+        # Create comprehensive document for your database
+        file_doc = {
+            # Original metadata
+            'original_name': file.filename,  # This is what was missing!
+            'filename': unique_filename,
+            'category': category,
+            'subfolder': subfolder,
+            'size': os.path.getsize(filepath),
+            'uploaded_by': user_id,  # Important: link to user
+            'uploaded_at': datetime.utcnow(),
+            'status': 'uploaded',
+            'filepath': filepath,
+            
+            # Timestamps (matching your existing format)
+            'createdAt': datetime.utcnow(),
+            'updatedAt': datetime.utcnow()
+        }
+        
+        # Process text content for documents/PDFs
+        if category in ['documents', 'pdfs']:
+            try:
+                extracted_text = extract_text_from_pdf(filepath)
+                summary = generate_summary(extracted_text)
+                
+                file_doc.update({
+                    'text': extracted_text,
+                    'content': extracted_text,  # Your existing field
+                    'summary': summary,        # Your existing field
+                    'text_length': len(extracted_text),
+                    'summary_length': len(summary) if summary else 0
+                })
+                
+                print(f"📝 Processed text content: {len(extracted_text)} chars")
+                
+            except Exception as e:
+                print(f"⚠️ Text processing error: {e}")
+                file_doc.update({
+                    'text': '',
+                    'content': '',
+                    'summary': 'Failed to process text content',
+                    'text_length': 0,
+                    'processing_error': str(e)
+                })
+        
+        # Store in your existing files collection
+        files_collection = db["files"]
+        result = files_collection.insert_one(file_doc)
+        file_id = str(result.inserted_id)
+        
+        print(f"✅ File stored with ID: {file_id}")
+        
+        return jsonify({
+            'success': True,
+            'message': f'File {file.filename} uploaded successfully',
+            'file_id': file_id,
+            'original_name': file.filename,
+            'filename': unique_filename,
+            'category': category,
+            'size': file_doc['size'],
+            'processed': len(file_doc.get('content', '')) > 0
+        }), 200
+        
+    except Exception as e:
+        print(f"❌ Upload error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': f'Upload failed: {str(e)}'}), 500
+
+@app.route('/admin/fix-files', methods=['POST'])
+def fix_existing_files():
+    """One-time fix for existing files in database - adds missing metadata"""
+    try:
+        files_collection = db["files"]
+        
+        # Find files missing original_name
+        files_to_fix = files_collection.find({"original_name": {"$exists": False}})
+        
+        fixed_count = 0
+        for file_doc in files_to_fix:
+            file_id = str(file_doc["_id"])
+            
+            # Add missing metadata
+            update_doc = {
+                "original_name": f"Document {file_id[-8:]}",
+                "filename": f"doc_{file_id[-8:]}.txt", 
+                "category": "documents",
+                "size": len(str(file_doc.get("content", ""))),
+                "uploaded_by": "system",  # Default user
+                "uploaded_at": file_doc.get("createdAt"),
+                "status": "uploaded",
+                "filepath": f"documents/doc_{file_id[-8:]}.txt"
+            }
+            
+            files_collection.update_one(
+                {"_id": file_doc["_id"]},
+                {"$set": update_doc}
+            )
+            
+            fixed_count += 1
+        
+        return jsonify({
+            "success": True,
+            "message": f"Fixed {fixed_count} files",
+            "fixed_count": fixed_count
+        }), 200
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/debug/files', methods=['GET'])
+def debug_files():
+    """Debug route to see what's in your files collection"""
+    try:
+        files_collection = db["files"]
+        
+        # Get all files (limit to 10 for safety)
+        all_files = list(files_collection.find().limit(10))
+        
+        # Convert ObjectIds to strings
+        for file_doc in all_files:
+            file_doc["_id"] = str(file_doc["_id"])
+            if "uploaded_by" in file_doc and isinstance(file_doc["uploaded_by"], ObjectId):
+                file_doc["uploaded_by"] = str(file_doc["uploaded_by"])
+        
+        return jsonify({
+            "success": True,
+            "files": all_files,
+            "count": len(all_files),
+            "collections": db.list_collection_names()
+        }), 200
+        
+    except Exception as e:
+        print(f"❌ Debug error: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+# ===== QUIZ GENERATION =====
 @app.route('/generate-quiz', methods=['POST'])
 def generate_quiz_route():
-    """Generate quiz with comprehensive metadata - UNCHANGED"""
+    """Generate quiz with comprehensive metadata"""
     try:
         data = request.get_json()
         
@@ -764,96 +990,7 @@ def get_progress():
         traceback.print_exc()
         return jsonify({'error': f'Failed to generate progress: {str(e)}'}), 500
 
-# ===== FILE UPLOAD - RESPECTS EXISTING FOLDER STRUCTURE =====
-@app.route('/upload', methods=['POST'])
-def upload_file():
-    """Enhanced file upload that RESPECTS your existing folder structure"""
-    try:
-        if 'file' not in request.files:
-            return jsonify({'error': 'No file provided'}), 400
-        
-        file = request.files['file']
-        user_id = request.form.get('user_id', 'anonymous')
-        
-        if file.filename == '':
-            return jsonify({'error': 'No file selected'}), 400
-        
-        if not allowed_file(file.filename):
-            return jsonify({'error': 'File type not allowed. Supported: ' + ', '.join(sum(UPLOAD_SUBFOLDERS.values(), []))}), 400
-
-        filename = secure_filename(file.filename)
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        filename = f"{timestamp}_{filename}"
-        
-        # IMPORTANT: Use existing folder structure
-        subfolder = get_upload_subfolder(file.filename)
-        filepath = os.path.join(UPLOAD_FOLDER, subfolder, filename)
-        
-        # Ensure the subfolder exists (respects existing structure)
-        os.makedirs(os.path.dirname(filepath), exist_ok=True)
-        
-        file.save(filepath)
-        print(f"📁 File saved to: {filepath}")
-        
-        category = get_file_category(file.filename)
-        
-        # Track file upload
-        upload_doc = {
-            'filename': filename,
-            'original_name': file.filename,
-            'category': category,
-            'subfolder': subfolder,  # Track which subfolder it went to
-            'size': os.path.getsize(filepath),
-            'uploaded_by': user_id,
-            'uploaded_at': datetime.utcnow(),
-            'status': 'uploaded',
-            'filepath': filepath
-        }
-        
-        # Process documents and PDFs as before
-        if category in ['documents', 'pdfs']:
-            try:
-                extracted_text = extract_text_from_pdf(filepath)
-                summary = generate_summary(extracted_text)
-                
-                upload_doc.update({
-                    'text_length': len(extracted_text),
-                    'summary_length': len(summary),
-                    'status': 'processed'
-                })
-                
-                return jsonify({
-                    'message': 'File uploaded and processed successfully',
-                    'filename': filename,
-                    'category': category,
-                    'subfolder': subfolder,
-                    'summary': summary,
-                    'text_length': len(extracted_text),
-                    'upload_id': str(ObjectId())
-                })
-            except Exception as e:
-                upload_doc['status'] = 'failed'
-                upload_doc['error'] = str(e)
-                
-                return jsonify({
-                    'message': 'File uploaded but processing failed',
-                    'filename': filename,
-                    'category': category,
-                    'subfolder': subfolder,
-                    'error': str(e)
-                })
-        else:
-            return jsonify({
-                'message': 'File uploaded successfully',
-                'filename': filename,
-                'category': category,
-                'subfolder': subfolder
-            })
-            
-    except Exception as e:
-        return jsonify({'error': f'Upload failed: {str(e)}'}), 500
-
-# ===== TEXT SUMMARIZATION (Unchanged) =====
+# ===== TEXT SUMMARIZATION =====
 @app.route('/summarize', methods=['POST'])
 def summarize_text():
     """Enhanced text summarization with tracking"""
@@ -876,9 +1013,7 @@ def summarize_text():
     except Exception as e:
         return jsonify({'error': f'Summarization failed: {str(e)}'}), 500
 
-
-
-#explainer
+# Register explainer blueprint
 app.register_blueprint(explain_bp)
 
 if __name__ == "__main__":
@@ -895,5 +1030,8 @@ if __name__ == "__main__":
     print("  POST /feedback - Submit feedback")
     print("  GET  /feedback/<id> - Get feedback")
     print("  POST /upload - Enhanced file upload (respects existing structure)")
+    print("  GET  /uploads - List uploaded files")
+    print("  POST /admin/fix-files - Fix existing files metadata")
+    print("  GET  /debug/files - Debug file structure")
     print("  POST /summarize - Text summarization")
     app.run(debug=True, host='0.0.0.0', port=5000)

@@ -1,0 +1,472 @@
+/* Frontend/src/components/FileManagerDashboard.css */
+
+.file-manager-dashboard {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 20px;
+}
+
+.dashboard-container {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* Header */
+.dashboard-header {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  padding: 32px;
+  text-align: center;
+  margin-bottom: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.dashboard-header h1 {
+  color: white;
+  margin: 0 0 8px 0;
+  font-size: 2.5rem;
+  font-weight: 700;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.dashboard-header p {
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0;
+  font-size: 1.1rem;
+  line-height: 1.6;
+}
+
+/* Loading State */
+.dashboard-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.loading-spinner {
+  text-align: center;
+  color: white;
+}
+
+.loading-spinner .spinner {
+  width: 50px;
+  height: 50px;
+  border: 4px solid rgba(255, 255, 255, 0.3);
+  border-top: 4px solid white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 20px;
+}
+
+.loading-spinner p {
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Upload Section */
+.upload-section {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  border-radius: 16px;
+  padding: 32px;
+  margin-bottom: 32px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.3s ease;
+}
+
+.upload-section.drag-active {
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.1);
+  transform: scale(1.02);
+}
+
+.upload-area {
+  border: 3px dashed #d1d5db;
+  border-radius: 12px;
+  padding: 48px 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: rgba(249, 250, 251, 0.8);
+}
+
+.upload-area:hover {
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.05);
+}
+
+.upload-section.drag-active .upload-area {
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.upload-content {
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.upload-icon {
+  font-size: 3rem;
+  margin-bottom: 16px;
+  opacity: 0.8;
+}
+
+.upload-content h3 {
+  color: #1f2937;
+  margin: 0 0 8px 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.upload-content p {
+  color: #6b7280;
+  margin: 0 0 16px 0;
+  font-size: 1rem;
+}
+
+.supported-formats span {
+  background: #f3f4f6;
+  color: #6b7280;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+/* Spinner Variants */
+.spinner {
+  width: 50px;
+  height: 50px;
+  border: 4px solid rgba(255, 255, 255, 0.3);
+  border-top: 4px solid white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.spinner.small {
+  width: 24px;
+  height: 24px;
+  border-width: 2px;
+}
+
+.spinner.tiny {
+  width: 16px;
+  height: 16px;
+  border-width: 2px;
+  border-color: rgba(0, 0, 0, 0.3);
+  border-top-color: currentColor;
+}
+
+/* File Controls */
+.file-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.search-filter {
+  display: flex;
+  gap: 12px;
+  flex: 1;
+  min-width: 300px;
+}
+
+.search-input {
+  flex: 1;
+  padding: 10px 16px;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  transition: border-color 0.2s;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
+.filter-select {
+  padding: 10px 16px;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  background: white;
+  cursor: pointer;
+  transition: border-color 0.2s;
+  min-width: 120px;
+}
+
+.filter-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
+.file-stats {
+  color: #6b7280;
+  font-size: 0.9rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* Files Grid */
+.files-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  gap: 24px;
+}
+
+.file-card {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.file-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+}
+
+.file-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.file-icon {
+  font-size: 2.5rem;
+  opacity: 0.8;
+  flex-shrink: 0;
+}
+
+.file-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.file-info h3 {
+  color: #1f2937;
+  margin: 0 0 8px 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+.file-meta {
+  color: #6b7280;
+  margin: 0 0 4px 0;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.file-date {
+  color: #9ca3af;
+  margin: 0;
+  font-size: 0.8rem;
+}
+
+/* File Actions */
+.file-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.action-btn {
+  flex: 1;
+  min-width: 100px;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.action-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+.action-btn.primary {
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  color: white;
+}
+
+.action-btn.primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.action-btn.secondary {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+}
+
+.action-btn.secondary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.action-btn.accent {
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  color: white;
+}
+
+.action-btn.accent:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+}
+
+/* Empty States */
+.empty-state {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+.empty-content {
+  text-align: center;
+  max-width: 400px;
+  padding: 40px 20px;
+}
+
+.empty-icon {
+  font-size: 4rem;
+  margin-bottom: 20px;
+  opacity: 0.7;
+}
+
+.empty-content h3 {
+  color: #374151;
+  margin-bottom: 12px;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.empty-content p {
+  color: #6b7280;
+  margin: 0;
+  line-height: 1.6;
+  font-size: 1rem;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .file-manager-dashboard {
+    padding: 12px;
+  }
+
+  .dashboard-header {
+    padding: 24px 20px;
+  }
+
+  .dashboard-header h1 {
+    font-size: 2rem;
+  }
+
+  .upload-section {
+    padding: 20px;
+  }
+
+  .upload-area {
+    padding: 32px 16px;
+  }
+
+  .file-controls {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 16px;
+  }
+
+  .search-filter {
+    flex-direction: column;
+    min-width: auto;
+  }
+
+  .files-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .file-card {
+    padding: 20px;
+  }
+
+  .file-actions {
+    flex-direction: column;
+  }
+
+  .action-btn {
+    min-width: auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .dashboard-header h1 {
+    font-size: 1.75rem;
+  }
+
+  .upload-content h3 {
+    font-size: 1.25rem;
+  }
+
+  .file-header {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 12px;
+  }
+
+  .file-icon {
+    font-size: 2rem;
+  }
+
+  .file-card {
+    padding: 16px;
+    gap: 16px;
+  }
+
+  .empty-content {
+    padding: 24px 16px;
+  }
+
+  .empty-icon {
+    font-size: 3rem;
+  }
+}

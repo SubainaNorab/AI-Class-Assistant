@@ -1,3 +1,5 @@
+// Frontend/src/App.js - Updated with Unified Dashboard
+
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -5,10 +7,13 @@ import ProtectedRoute from './components/ProtectedRoute';
 import LoginPage from './components/LoginPage';
 import SignupPage from './components/SignupPage';
 
-// Import your existing components (keeping original functionality)
+// Import components - NEW: FileManagerDashboard as main landing page
+import FileManagerDashboard from './components/FileManagerDashboard';
 import FlashcardTestPage from './FlashcardTestPage';
 import QuizListPage from './QuizListPage'; 
 import StatsPage from './components/StatsPage';
+import ExplainIdeasPage from './components/ExplainIdeasPage';
+
 import './App.css';
 
 // Enhanced Navigation Component with Authentication
@@ -32,10 +37,16 @@ const Navigation = () => {
         <div className="nav-links">
           {isAuthenticated ? (
             <>
-              {/* Protected Navigation Links - Person-1 Task */}
+              {/* Protected Navigation Links */}
               <Link
                 to="/"
                 className={`nav-link ${location.pathname === '/' ? 'active' : ''}`}
+              >
+                📚 Dashboard
+              </Link>
+              <Link
+                to="/flashcards"
+                className={`nav-link ${location.pathname === '/flashcards' ? 'active' : ''}`}
               >
                 🎯 Flashcards
               </Link>
@@ -46,39 +57,45 @@ const Navigation = () => {
                 📝 Quizzes
               </Link>
               <Link
+                to="/explain"
+                className={`nav-link ${location.pathname === '/explain' ? 'active' : ''}`}
+              >
+                🧠 Explain Ideas
+              </Link>
+              <Link
                 to="/stats"
                 className={`nav-link ${location.pathname === '/stats' ? 'active' : ''}`}
               >
-                📊 Statistics
+                📊 Stats
               </Link>
               
-              {/* User Menu - Shows authenticated user info */}
+              {/* User Menu */}
               <div className="user-menu">
                 <div className="user-info">
-                  <span className="user-avatar">
-                    {user?.full_name?.charAt(0)?.toUpperCase() || '👤'}
-                  </span>
-                  <span className="user-name">
-                    {user?.full_name || 'User'}
-                  </span>
+                  <div className="user-avatar">
+                    {user?.full_name ? user.full_name.charAt(0).toUpperCase() : 'U'}
+                  </div>
+                  <span className="user-name">{user?.full_name || 'User'}</span>
                 </div>
-                <button 
-                  onClick={handleLogout}
-                  className="logout-btn"
-                  title="Logout"
-                >
-                  🚪 Logout
+                <button className="logout-btn" onClick={handleLogout}>
+                  Logout
                 </button>
               </div>
             </>
           ) : (
             <>
               {/* Public Navigation Links */}
-              <Link to="/login" className="nav-link auth-link">
-                🔐 Login
+              <Link
+                to="/login"
+                className="nav-link auth-link"
+              >
+                Sign In
               </Link>
-              <Link to="/signup" className="nav-link auth-link signup">
-                🚀 Sign Up
+              <Link
+                to="/signup"
+                className="nav-link auth-link signup"
+              >
+                Sign Up
               </Link>
             </>
           )}
@@ -88,90 +105,91 @@ const Navigation = () => {
   );
 };
 
-// Main App Content Component
-function AppContent() {
-  const { loading } = useAuth();
-
-  if (loading) {
-    return (
-      <div className="app-loading">
-        <div className="loading-spinner">
-          <div className="spinner"></div>
-          <p>Loading AI Class Assistant...</p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="App">
-      <Navigation />
-      <main className="main-content">
-        <Routes>
-          {/* Public Routes - Login/Signup */}
-          <Route 
-            path="/login" 
-            element={
-              <ProtectedRoute requireAuth={false}>
-                <LoginPage />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/signup" 
-            element={
-              <ProtectedRoute requireAuth={false}>
-                <SignupPage />
-              </ProtectedRoute>
-            } 
-          />
-          
-          {/* Protected Routes - Person-1 Task: Ensure these check JWT */}
-          <Route 
-            path="/" 
-            element={
-              <ProtectedRoute>
-                <FlashcardTestPage />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/quiz" 
-            element={
-              <ProtectedRoute>
-                <QuizListPage />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/stats" 
-            element={
-              <ProtectedRoute>
-                <StatsPage />
-              </ProtectedRoute>
-            } 
-          />
-          
-          {/* Fallback Route */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </main>
-      
-      <footer className="app-footer">
-        <p>&copy; 2025 AI Class Assistant. Built with ❤️ for better learning.</p>
-      </footer>
-    </div>
-  );
-}
-
-// Root App Component with AuthProvider
+// Main App Component
 function App() {
   return (
-    <Router>
-      <AuthProvider>
-        <AppContent />
-      </AuthProvider>
-    </Router>
+    <AuthProvider>
+      <Router>
+        <div className="App">
+          <Navigation />
+          <main className="main-content">
+            <Routes>
+              {/* Public Routes */}
+              <Route 
+                path="/login" 
+                element={
+                  <ProtectedRoute requireAuth={false}>
+                    <LoginPage />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/signup" 
+                element={
+                  <ProtectedRoute requireAuth={false}>
+                    <SignupPage />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              {/* Protected Routes */}
+              {/* NEW: Dashboard as main landing page */}
+              <Route 
+                path="/" 
+                element={
+                  <ProtectedRoute>
+                    <FileManagerDashboard />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              {/* Flashcards moved to /flashcards */}
+              <Route 
+                path="/flashcards" 
+                element={
+                  <ProtectedRoute>
+                    <FlashcardTestPage />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              <Route 
+                path="/quiz" 
+                element={
+                  <ProtectedRoute>
+                    <QuizListPage />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              <Route 
+                path="/explain" 
+                element={
+                  <ProtectedRoute>
+                    <ExplainIdeasPage />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              <Route 
+                path="/stats" 
+                element={
+                  <ProtectedRoute>
+                    <StatsPage />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              {/* Catch all route - redirect to dashboard */}
+              <Route 
+                path="*" 
+                element={<Navigate to="/" replace />} 
+              />
+            </Routes>
+          </main>
+        </div>
+      </Router>
+    </AuthProvider>
   );
 }
 
