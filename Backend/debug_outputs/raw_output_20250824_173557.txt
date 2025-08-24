@@ -1,0 +1,33 @@
+{
+  "quiz": [
+    {
+      "question": "What is the primary purpose of a quiz generator?",
+      "options": ["To create random questions", "To generate complex mathematical problems", "To create quizzes based on given content", "To assess typing speed"],
+      "answer": "To create quizzes based on given content"
+    },
+    {
+      "question": "Which of the following is NOT a requirement for creating a multiple-choice question?",
+      "options": ["4 options", "Exactly one correct option", "5 options", "Specific and accurate to the content"],
+      "answer": "5 options"
+    },
+    {
+      "question": "What is the expected format of the answer in the JSON?",
+      "options": ["String", "Integer", "Boolean", "JSON object"],
+      "answer": "String"
+    }
+  ],
+  "flashcards": [
+    {
+      "question": "What is the main function of a quiz generator?",
+      "answer": "To generate multiple-choice questions and flashcards based on given content."
+    },
+    {
+      "question": "What are the four requirements for creating a multiple-choice question?",
+      "answer": "1. Test understanding of key concepts, 2. 4 options, 3. Exactly one correct option, 4. Specific and accurate to the content."
+    },
+    {
+      "question": "What is the format of the returned JSON?",
+      "answer": "Valid JSON in the exact format provided in the instructions."
+    }
+  ]
+}

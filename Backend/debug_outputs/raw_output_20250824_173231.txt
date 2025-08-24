@@ -1,0 +1,33 @@
+{
+  "quiz": [
+    {
+      "question": "What is the main concept discussed in the content?",
+      "options": ["No content available", "A discussion on machine learning", "A tutorial on how to code", "An analysis of a scientific study"],
+      "answer": "No content available"
+    },
+    {
+      "question": "Which statement is true according to the content?",
+      "options": ["The content discusses machine learning", "The content provides a coding tutorial", "The content analyzes a scientific study", "The content does not provide any specific information"],
+      "answer": "The content does not provide any specific information"
+    },
+    {
+      "question": "What can be concluded from the content?",
+      "options": ["The content is about machine learning", "The content teaches coding", "The content examines a scientific study", "No specific conclusion can be drawn"],
+      "answer": "No specific conclusion can be drawn"
+    }
+  ],
+  "flashcards": [
+    {
+      "question": "What is the key definition?",
+      "answer": "There is no key definition as no specific content was provided."
+    },
+    {
+      "question": "What is the main principle?",
+      "answer": "There is no main principle as no specific content was provided."
+    },
+    {
+      "question": "What should you remember?",
+      "answer": "There is no specific takeaway as no specific content was provided."
+    }
+  ]
+}
