@@ -1,0 +1,33 @@
+{
+  "quiz": [
+    {
+      "question": "What is the main concept discussed in the content?",
+      "options": ["No content available", "A new programming language", "The theory of relativity", "How to generate quizzes"],
+      "answer": "No content available"
+    },
+    {
+      "question": "Which statement is true according to the content?",
+      "options": ["The content discusses a new programming language", "Einstein's theory of relativity is explained", "Quiz generation techniques are revealed", "Information about the solar system is provided"],
+      "answer": "Quiz generation techniques are revealed"
+    },
+    {
+      "question": "What can be concluded from the content?",
+      "options": ["You can learn a new programming language", "Understanding of relativity is improved", "Quiz generation skills are acquired", "Solar system knowledge is enhanced"],
+      "answer": "Quiz generation skills are acquired"
+    }
+  ],
+  "flashcards": [
+    {
+      "question": "What is the key definition?",
+      "answer": "There is no key definition provided in the content as it does not discuss any specific concept or term."
+    },
+    {
+      "question": "What is the main principle?",
+      "answer": "The main principle of quiz generation is not explicitly stated in the content, but it involves creating questions that test understanding of key concepts, making sure each multiple choice question has 4 options, ensuring one option is clearly correct, creating flashcards that help memorize important information, and being specific and accurate to the content provided."
+    },
+    {
+      "question": "What should you remember?",
+      "answer": "You should remember that the content is about quiz generation techniques and that it provides instructions on how to create multiple-choice questions and flashcards based on any given content."
+    }
+  ]
+}

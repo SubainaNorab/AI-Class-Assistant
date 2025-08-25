@@ -1,0 +1,33 @@
+{
+  "quiz": [
+    {
+      "question": "What is the primary purpose of a quiz generator?",
+      "options": ["To generate random numbers", "To create quizzes based on given content", "To design logos", "To analyze data"],
+      "answer": "To create quizzes based on given content"
+    },
+    {
+      "question": "How many multiple-choice questions should a quiz have according to the instructions?",
+      "options": ["1", "2", "3", "4"],
+      "answer": "3"
+    },
+    {
+      "question": "What should be the format of each option in a multiple-choice question?",
+      "options": ["A single word", "A phrase", "A sentence", "A paragraph"],
+      "answer": "A phrase"
+    }
+  ],
+  "flashcards": [
+    {
+      "question": "What is the main task of a quiz generator?",
+      "answer": "To create multiple-choice questions and flashcards based on the provided content."
+    },
+    {
+      "question": "How many flashcards should be created according to the instructions?",
+      "answer": "3"
+    },
+    {
+      "question": "What is the format of a flashcard?",
+      "answer": "A question followed by its corresponding answer."
+    }
+  ]
+}

@@ -1012,6 +1012,37 @@ def summarize_text():
         })
     except Exception as e:
         return jsonify({'error': f'Summarization failed: {str(e)}'}), 500
+    
+@app.route('/summary/<file_id>', methods=['GET'])
+def get_summary(file_id):
+    """Fetch summary + content for a given file"""
+    try:
+        files_collection = db["files"]
+
+        # Find file by filename OR MongoDB _id
+        file_doc = files_collection.find_one({
+            "$or": [
+                {"filename": file_id},
+                {"_id": ObjectId(file_id)} if ObjectId.is_valid(file_id) else {}
+            ]
+        })
+
+        if not file_doc:
+            return jsonify({"success": False, "error": "File not found"}), 404
+
+        return jsonify({
+            "success": True,
+            "file_id": str(file_doc["_id"]),
+            "original_name": file_doc.get("original_name"),
+            "filename": file_doc.get("filename"),
+            "summary": file_doc.get("summary", "No summary available"),
+            "content": file_doc.get("content", "")
+        }), 200
+
+    except Exception as e:
+        print(f"❌ Error in /summary/{file_id}: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
 
 # Register explainer blueprint
 app.register_blueprint(explain_bp)
