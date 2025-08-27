@@ -13,7 +13,7 @@ import FlashcardTestPage from './FlashcardTestPage';
 import QuizListPage from './QuizListPage'; 
 import StatsPage from './components/StatsPage';
 import ExplainIdeasPage from './components/ExplainIdeasPage';
-
+import SummaryPage from "./SummaryPage";
 import './App.css';
 
 // Enhanced Navigation Component with Authentication
@@ -152,7 +152,15 @@ function App() {
                   </ProtectedRoute>
                 } 
               />
-              
+              {/* ✅ File-specific summary page */}
+              <Route 
+                path="/summary/:fileId" 
+                element={
+                  <ProtectedRoute>
+                    <SummaryPage />
+                  </ProtectedRoute>
+                } 
+              />
               <Route 
                 path="/quiz" 
                 element={
