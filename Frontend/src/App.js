@@ -13,7 +13,7 @@ import FlashcardTestPage from './FlashcardTestPage';
 import QuizListPage from './QuizListPage'; 
 import StatsPage from './components/StatsPage';
 import ExplainIdeasPage from './components/ExplainIdeasPage';
-import SummaryPage from "./SummaryPage";
+import SummaryPage from "./summarypage";
 import './App.css';
 
 // Enhanced Navigation Component with Authentication

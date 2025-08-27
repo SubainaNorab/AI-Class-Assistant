@@ -88,15 +88,15 @@ const FileUploadPage = () => {
       const data = await response.json();
 
       if (data.success) {
-        addToast(`✅ Uploaded ${data.uploaded.length || 1} files successfully!`, "success");
+        addToast(`Uploaded ${data.uploaded.length || 1} files successfully!`, "success");
         setFiles([]);
         fetchUploads(); // Refresh the uploads list
       } else {
-        addToast(`❌ ${data.error || "Upload failed"}`, "error");
+        addToast(`${data.error || "Upload failed"}`, "error");
       }
     } catch (err) {
       console.error(err);
-      addToast("❌ Upload failed due to server error", "error");
+      addToast("Upload failed due to server error", "error");
     } finally {
       setLoading(false);
     }
@@ -195,19 +195,22 @@ const FileUploadPage = () => {
               <div style={styles.actionButtons}>
                 <button
                   style={{ ...styles.actionBtn, backgroundColor: "#2563eb" }}
-                  onClick={() => navigate(`/summary/${upload._id}`)}
+                  onClick={() => {
+                    console.log("Navigating to summary for upload:", upload);
+                    navigate(`/summary/${upload._id || upload.id}`);
+                  }}
                 >
                   Summarize
                 </button>
                 <button
                   style={{ ...styles.actionBtn, backgroundColor: "#16a34a" }}
-                  onClick={() => navigate(`/flashcards/${upload._id}`)}
+                  onClick={() => navigate(`/flashcards/${upload._id || upload.id}`)}
                 >
                   Flashcards
                 </button>
                 <button
                   style={{ ...styles.actionBtn, backgroundColor: "#9333ea" }}
-                  onClick={() => navigate(`/explain/${upload._id}`)}
+                  onClick={() => navigate(`/explain/${upload._id || upload.id}`)}
                 >
                   Explain
                 </button>
