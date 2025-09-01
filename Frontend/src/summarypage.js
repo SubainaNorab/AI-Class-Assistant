@@ -10,19 +10,32 @@ const SummaryPage = () => {
   const [error, setError] = useState("");
   const [fileInfo, setFileInfo] = useState(null);
 
+  // Add debug logging
+  useEffect(() => {
+    console.log("SummaryPage mounted with fileId:", fileId);
+    console.log("Current URL:", window.location.href);
+  }, [fileId]);
+
   useEffect(() => {
     const fetchSummary = async () => {
       try {
+        console.log("Fetching summary for fileId:", fileId);
         const res = await fetch(`http://localhost:5000/summary/${fileId}`);
+        
+        // Check if response is OK
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`);
+        }
+        
         const data = await res.json();
-        console.log("Summary response:", data);
+        console.log("Summary API response:", data);
 
         if (data.success) {
           setSummary(data.summary || "No summary available");
-          setOriginalName(data.original_name || "Untitled Document");
+          setOriginalName(data.original_name || data.filename || "Untitled Document");
           setFileInfo({
             filename: data.filename,
-            file_id: data.file_id,
+            file_id: data.file_id || fileId,
             contentLength: data.content ? data.content.length : 0
           });
         } else {
@@ -30,14 +43,17 @@ const SummaryPage = () => {
         }
       } catch (err) {
         console.error("Error fetching summary:", err);
-        setError("Failed to fetch summary. Please check your connection.");
+        setError(`Failed to fetch summary: ${err.message}. Please check your connection and try again.`);
       } finally {
         setLoading(false);
       }
     };
 
-    if (fileId) {
+    if (fileId && fileId !== "undefined") {
       fetchSummary();
+    } else {
+      setError("Invalid file ID");
+      setLoading(false);
     }
   }, [fileId]);
 
@@ -55,12 +71,23 @@ const SummaryPage = () => {
     document.body.removeChild(element);
   };
 
+  // Add CSS animation for spinner
+  const spinnerStyle = {
+    width: "40px",
+    height: "40px",
+    border: "4px solid #f3f4f6",
+    borderTop: "4px solid #2563eb",
+    borderRadius: "50%",
+    animation: "spin 1s linear infinite",
+    marginBottom: "16px",
+  };
+
   if (loading) {
     return (
       <div style={styles.container}>
         <div style={styles.loadingContainer}>
-          <div style={styles.spinner}></div>
-          <p style={styles.loadingText}>Loading summary...</p>
+          <div style={spinnerStyle}></div>
+          <p style={styles.loadingText}>Loading summary for file: {fileId}</p>
         </div>
       </div>
     );
@@ -73,12 +100,14 @@ const SummaryPage = () => {
           <div style={styles.errorIcon}>⚠️</div>
           <h3 style={styles.errorTitle}>Error Loading Summary</h3>
           <p style={styles.errorText}>{error}</p>
-          <button style={styles.retryButton} onClick={() => window.location.reload()}>
-            Try Again
-          </button>
-          <button style={styles.backButton} onClick={handleGoBack}>
-            Go Back
-          </button>
+          <div style={styles.errorButtons}>
+            <button style={styles.retryButton} onClick={() => window.location.reload()}>
+              Try Again
+            </button>
+            <button style={styles.backButton} onClick={handleGoBack}>
+              Go Back to Files
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -112,6 +141,9 @@ const SummaryPage = () => {
                 {Math.round(fileInfo.contentLength / 1000)}k characters
               </span>
             )}
+            <span style={styles.metaItem}>
+              File ID: {fileId}
+            </span>
           </div>
         </div>
       </div>
@@ -188,6 +220,10 @@ const styles = {
     fontSize: "14px",
     fontWeight: "500",
     color: "#374151",
+    transition: "background-color 0.2s",
+    ":hover": {
+      backgroundColor: "#e5e7eb",
+    }
   },
   downloadBtn: {
     display: "flex",
@@ -201,6 +237,10 @@ const styles = {
     fontSize: "14px",
     fontWeight: "500",
     color: "white",
+    transition: "background-color 0.2s",
+    ":hover": {
+      backgroundColor: "#1d4ed8",
+    }
   },
   documentInfo: {
     display: "flex",
@@ -216,12 +256,14 @@ const styles = {
     backgroundColor: "#dbeafe",
     padding: "12px",
     borderRadius: "10px",
+    fontSize: "24px",
   },
   documentTitle: {
     fontSize: "24px",
     fontWeight: "bold",
     color: "#1f2937",
     margin: "0 0 8px 0",
+    wordBreak: "break-word",
   },
   documentMeta: {
     display: "flex",
@@ -229,6 +271,7 @@ const styles = {
     gap: "16px",
     fontSize: "14px",
     color: "#6b7280",
+    flexWrap: "wrap",
   },
   metaItem: {
     display: "flex",
@@ -278,7 +321,7 @@ const styles = {
     flexWrap: "wrap",
   },
   actionBtn: {
-    flex: 1,
+    flex: "1",
     minWidth: "160px",
     padding: "12px 20px",
     borderRadius: "8px",
@@ -287,6 +330,10 @@ const styles = {
     cursor: "pointer",
     fontWeight: "500",
     fontSize: "14px",
+    transition: "opacity 0.2s",
+    ":hover": {
+      opacity: "0.9",
+    }
   },
   loadingContainer: {
     display: "flex",
@@ -295,18 +342,11 @@ const styles = {
     justifyContent: "center",
     height: "60vh",
   },
-  spinner: {
-    width: "40px",
-    height: "40px",
-    border: "4px solid #f3f4f6",
-    borderTop: "4px solid #2563eb",
-    borderRadius: "50%",
-    animation: "spin 1s linear infinite",
-    marginBottom: "16px",
-  },
   loadingText: {
     fontSize: "18px",
     color: "#6b7280",
+    marginTop: "16px",
+    textAlign: "center",
   },
   errorContainer: {
     display: "flex",
@@ -315,6 +355,7 @@ const styles = {
     justifyContent: "center",
     height: "60vh",
     textAlign: "center",
+    padding: "20px",
   },
   errorIcon: {
     fontSize: "48px",
@@ -324,13 +365,20 @@ const styles = {
     fontSize: "24px",
     fontWeight: "600",
     color: "#dc2626",
-    marginBottom: "8px",
+    marginBottom: "12px",
   },
   errorText: {
     fontSize: "16px",
     color: "#6b7280",
     marginBottom: "24px",
     maxWidth: "400px",
+    lineHeight: "1.5",
+  },
+  errorButtons: {
+    display: "flex",
+    gap: "12px",
+    flexWrap: "wrap",
+    justifyContent: "center",
   },
   retryButton: {
     padding: "12px 24px",
@@ -340,7 +388,10 @@ const styles = {
     borderRadius: "8px",
     fontWeight: "500",
     cursor: "pointer",
-    marginRight: "12px",
+    transition: "background-color 0.2s",
+    ":hover": {
+      backgroundColor: "#1d4ed8",
+    }
   },
   backButton: {
     padding: "12px 24px",
@@ -350,7 +401,21 @@ const styles = {
     borderRadius: "8px",
     fontWeight: "500",
     cursor: "pointer",
+    transition: "background-color 0.2s",
+    ":hover": {
+      backgroundColor: "#4b5563",
+    }
   },
 };
+
+// Add CSS animation for spinner
+const styleSheet = document.styleSheets[0];
+const keyframes = `
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+`;
+styleSheet.insertRule(keyframes, styleSheet.cssRules.length);
 
 export default SummaryPage;
