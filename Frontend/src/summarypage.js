@@ -1,3 +1,5 @@
+// Frontend/src/summarypage.js - UPDATED WITH ENHANCED FUNCTIONALITY
+
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 
@@ -9,6 +11,7 @@ const SummaryPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [fileInfo, setFileInfo] = useState(null);
+  const [regenerating, setRegenerating] = useState(false);
 
   // Add debug logging
   useEffect(() => {
@@ -20,7 +23,11 @@ const SummaryPage = () => {
     const fetchSummary = async () => {
       try {
         console.log("Fetching summary for fileId:", fileId);
-        const res = await fetch(`http://localhost:5000/summary/${fileId}`);
+        const res = await fetch(`http://localhost:5000/summary/${fileId}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+          }
+        });
         
         // Check if response is OK
         if (!res.ok) {
@@ -57,6 +64,47 @@ const SummaryPage = () => {
     }
   }, [fileId]);
 
+  // ADDED: Regenerate summary function
+  const handleRegenerateSummary = async () => {
+    try {
+      setRegenerating(true);
+      
+      const response = await fetch(`http://localhost:5000/generate-summary/${fileId}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setSummary(data.summary || '');
+          console.log('✅ Summary regenerated successfully');
+        } else {
+          setError(data.error || 'Failed to regenerate summary');
+        }
+      } else {
+        setError('Failed to regenerate summary');
+      }
+    } catch (err) {
+      console.error('Error regenerating summary:', err);
+      setError('Error regenerating summary');
+    } finally {
+      setRegenerating(false);
+    }
+  };
+
+  // ADDED: Copy summary function
+  const handleCopySummary = () => {
+    navigator.clipboard.writeText(summary).then(() => {
+      console.log('✅ Summary copied to clipboard');
+      // You can add a toast notification here
+    }).catch(err => {
+      console.error('Failed to copy summary:', err);
+    });
+  };
+
   const handleGoBack = () => {
     navigate("/");
   };
@@ -87,7 +135,7 @@ const SummaryPage = () => {
       <div style={styles.container}>
         <div style={styles.loadingContainer}>
           <div style={spinnerStyle}></div>
-          <p style={styles.loadingText}>Loading summary for file: {fileId}</p>
+          <p>Loading summary...</p>
         </div>
       </div>
     );
@@ -97,16 +145,21 @@ const SummaryPage = () => {
     return (
       <div style={styles.container}>
         <div style={styles.errorContainer}>
-          <div style={styles.errorIcon}>⚠️</div>
-          <h3 style={styles.errorTitle}>Error Loading Summary</h3>
-          <p style={styles.errorText}>{error}</p>
-          <div style={styles.errorButtons}>
-            <button style={styles.retryButton} onClick={() => window.location.reload()}>
-              Try Again
-            </button>
-            <button style={styles.backButton} onClick={handleGoBack}>
-              Go Back to Files
-            </button>
+          <div style={styles.errorContent}>
+            <div style={styles.errorIcon}>❌</div>
+            <h3>Error Loading Summary</h3>
+            <p>{error}</p>
+            <div style={styles.errorActions}>
+              <button 
+                style={styles.retryBtn} 
+                onClick={() => window.location.reload()}
+              >
+                🔄 Retry
+              </button>
+              <button style={styles.backBtn} onClick={handleGoBack}>
+                ← Back to Dashboard
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -117,53 +170,70 @@ const SummaryPage = () => {
     <div style={styles.container}>
       {/* Header */}
       <div style={styles.header}>
-        <button style={styles.backBtn} onClick={handleGoBack}>
-          ← Back to Files
-        </button>
-        <button style={styles.downloadBtn} onClick={handleDownloadSummary}>
-          ↓ Download Summary
-        </button>
-      </div>
-
-      {/* Document Info */}
-      <div style={styles.documentInfo}>
-        <div style={styles.documentIcon}>
-          📄
-        </div>
-        <div>
-          <h1 style={styles.documentTitle}>{originalName}</h1>
-          <div style={styles.documentMeta}>
-            <span style={styles.metaItem}>
-              🕒 Processed just now
-            </span>
-            {fileInfo && fileInfo.contentLength > 0 && (
-              <span style={styles.metaItem}>
-                {Math.round(fileInfo.contentLength / 1000)}k characters
-              </span>
-            )}
-            <span style={styles.metaItem}>
-              File ID: {fileId}
-            </span>
+        <div style={styles.headerControls}>
+          <button style={styles.backBtn} onClick={handleGoBack}>
+            ← Back to Dashboard
+          </button>
+          <div style={styles.headerActions}>
+            <button 
+              style={{ ...styles.actionBtn, backgroundColor: "#10b981" }}
+              onClick={handleCopySummary}
+            >
+              📋 Copy
+            </button>
+            <button 
+              style={{ ...styles.actionBtn, backgroundColor: "#3b82f6" }}
+              onClick={handleDownloadSummary}
+            >
+              💾 Download
+            </button>
+            <button 
+              style={{ 
+                ...styles.actionBtn, 
+                backgroundColor: regenerating ? "#9ca3af" : "#f59e0b" 
+              }}
+              onClick={handleRegenerateSummary}
+              disabled={regenerating}
+            >
+              {regenerating ? '⏳ Regenerating...' : '🔄 Regenerate'}
+            </button>
           </div>
         </div>
+        
+        <div style={styles.headerInfo}>
+          <h1 style={styles.title}>📄 Document Summary</h1>
+          <p style={styles.subtitle}>Summary for: <strong>{originalName}</strong></p>
+        </div>
       </div>
 
-      {/* Summary Section */}
+      {/* Summary Content */}
       <div style={styles.summarySection}>
-        <h2 style={styles.sectionTitle}>Document Summary</h2>
         <div style={styles.summaryCard}>
           {summary ? (
-            <p style={styles.summaryText}>{summary}</p>
+            <div style={styles.summaryContent}>
+              {summary.split('\n').map((paragraph, index) => (
+                <p key={index} style={styles.summaryParagraph}>
+                  {paragraph}
+                </p>
+              ))}
+            </div>
           ) : (
             <div style={styles.noSummary}>
               <p>No summary available for this document.</p>
               <p>This might be due to the document format or processing error.</p>
+              <button 
+                style={styles.generateBtn}
+                onClick={handleRegenerateSummary}
+                disabled={regenerating}
+              >
+                {regenerating ? '⏳ Generating...' : '✨ Generate Summary'}
+              </button>
             </div>
           )}
         </div>
       </div>
 
-      {/* Actions */}
+      {/* Actions Section */}
       <div style={styles.actionsSection}>
         <h3 style={styles.actionsTitle}>What would you like to do next?</h3>
         <div style={styles.actionButtons}>
@@ -171,22 +241,19 @@ const SummaryPage = () => {
             style={{ ...styles.actionBtn, backgroundColor: "#16a34a" }}
             onClick={() => navigate(`/flashcards/${fileId}`)}
           >
-            Generate Flashcards
+            🎴 Generate Flashcards
           </button>
           <button 
             style={{ ...styles.actionBtn, backgroundColor: "#9333ea" }}
             onClick={() => navigate(`/explain/${fileId}`)}
           >
-            Get Explanation
+            💡 Get Explanation
           </button>
           <button 
             style={{ ...styles.actionBtn, backgroundColor: "#dc2626" }}
-            onClick={() => {
-              // Generate quiz functionality
-              console.log("Generate quiz for file:", fileId);
-            }}
+            onClick={() => navigate('/quiz')}
           >
-            Create Quiz
+            📝 Create Quiz
           </button>
         </div>
       </div>
@@ -197,225 +264,196 @@ const SummaryPage = () => {
 const styles = {
   container: {
     padding: "20px",
-    maxWidth: "900px",
+    maxWidth: "1200px",
     margin: "0 auto",
     fontFamily: "'Inter', sans-serif",
     minHeight: "100vh",
+    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
   },
+  
+  // UPDATED: Enhanced header styles
   header: {
+    background: "rgba(255, 255, 255, 0.1)",
+    backdropFilter: "blur(10px)",
+    borderRadius: "16px",
+    padding: "24px 32px",
+    marginBottom: "32px",
+    border: "1px solid rgba(255, 255, 255, 0.2)",
+  },
+  
+  headerControls: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: "30px",
+    marginBottom: "20px",
   },
+  
+  headerActions: {
+    display: "flex",
+    gap: "12px",
+  },
+  
+  headerInfo: {
+    textAlign: "center",
+    color: "white",
+  },
+  
+  title: {
+    margin: "0 0 8px 0",
+    fontSize: "2.5rem",
+    fontWeight: "700",
+    textShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+    color: "white",
+  },
+  
+  subtitle: {
+    margin: "0",
+    fontSize: "1.1rem",
+    opacity: "0.9",
+    color: "white",
+  },
+
   backBtn: {
     display: "flex",
     alignItems: "center",
     gap: "8px",
     padding: "10px 16px",
-    backgroundColor: "#f3f4f6",
+    background: "rgba(255, 255, 255, 0.2)",
     border: "none",
     borderRadius: "8px",
-    cursor: "pointer",
-    fontSize: "14px",
-    fontWeight: "500",
-    color: "#374151",
-    transition: "background-color 0.2s",
-    ":hover": {
-      backgroundColor: "#e5e7eb",
-    }
-  },
-  downloadBtn: {
-    display: "flex",
-    alignItems: "center",
-    gap: "6px",
-    padding: "10px 16px",
-    backgroundColor: "#2563eb",
-    border: "none",
-    borderRadius: "8px",
-    cursor: "pointer",
-    fontSize: "14px",
-    fontWeight: "500",
     color: "white",
-    transition: "background-color 0.2s",
-    ":hover": {
-      backgroundColor: "#1d4ed8",
-    }
+    cursor: "pointer",
+    fontWeight: "500",
+    transition: "all 0.3s ease",
   },
-  documentInfo: {
-    display: "flex",
-    alignItems: "flex-start",
-    gap: "16px",
-    marginBottom: "32px",
-    padding: "20px",
-    backgroundColor: "#f8fafc",
-    borderRadius: "12px",
-    border: "1px solid #e2e8f0",
-  },
-  documentIcon: {
-    backgroundColor: "#dbeafe",
-    padding: "12px",
-    borderRadius: "10px",
-    fontSize: "24px",
-  },
-  documentTitle: {
-    fontSize: "24px",
-    fontWeight: "bold",
-    color: "#1f2937",
-    margin: "0 0 8px 0",
-    wordBreak: "break-word",
-  },
-  documentMeta: {
-    display: "flex",
-    alignItems: "center",
-    gap: "16px",
-    fontSize: "14px",
-    color: "#6b7280",
-    flexWrap: "wrap",
-  },
-  metaItem: {
-    display: "flex",
-    alignItems: "center",
-    gap: "4px",
-  },
+
+  // UPDATED: Enhanced summary section
   summarySection: {
-    marginBottom: "40px",
+    marginBottom: "32px",
   },
-  sectionTitle: {
-    fontSize: "20px",
-    fontWeight: "600",
-    color: "#1f2937",
-    marginBottom: "16px",
-  },
+
   summaryCard: {
-    backgroundColor: "white",
-    border: "1px solid #e5e7eb",
-    borderRadius: "12px",
-    padding: "28px",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+    background: "rgba(255, 255, 255, 0.95)",
+    backdropFilter: "blur(20px)",
+    borderRadius: "16px",
+    padding: "32px",
+    boxShadow: "0 8px 32px rgba(0, 0, 0, 0.1)",
+    border: "1px solid rgba(255, 255, 255, 0.2)",
   },
-  summaryText: {
-    lineHeight: "1.8",
-    fontSize: "16px",
-    color: "#374151",
-    margin: 0,
-    whiteSpace: "pre-wrap",
+
+  summaryContent: {
+    color: "#1f2937",
+    fontSize: "1.1rem",
+    lineHeight: "1.7",
   },
+
+  summaryParagraph: {
+    margin: "0 0 16px 0",
+  },
+
   noSummary: {
     textAlign: "center",
     color: "#6b7280",
-    fontSize: "16px",
+    padding: "40px 20px",
   },
-  actionsSection: {
-    marginTop: "40px",
-  },
-  actionsTitle: {
-    fontSize: "18px",
+
+  generateBtn: {
+    padding: "12px 24px",
+    background: "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
+    color: "white",
+    border: "none",
+    borderRadius: "8px",
     fontWeight: "600",
-    color: "#1f2937",
-    marginBottom: "16px",
+    cursor: "pointer",
+    marginTop: "20px",
   },
+
+  // Actions section
+  actionsSection: {
+    background: "rgba(255, 255, 255, 0.95)",
+    backdropFilter: "blur(20px)",
+    borderRadius: "16px",
+    padding: "24px 32px",
+    boxShadow: "0 8px 32px rgba(0, 0, 0, 0.1)",
+    border: "1px solid rgba(255, 255, 255, 0.2)",
+  },
+
+  actionsTitle: {
+    color: "#1f2937",
+    margin: "0 0 16px 0",
+    fontSize: "1.25rem",
+    fontWeight: "700",
+    textAlign: "center",
+  },
+
   actionButtons: {
     display: "flex",
     gap: "12px",
+    justifyContent: "center",
     flexWrap: "wrap",
   },
+
   actionBtn: {
-    flex: "1",
-    minWidth: "160px",
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
     padding: "12px 20px",
-    borderRadius: "8px",
     border: "none",
+    borderRadius: "8px",
     color: "white",
     cursor: "pointer",
-    fontWeight: "500",
-    fontSize: "14px",
-    transition: "opacity 0.2s",
-    ":hover": {
-      opacity: "0.9",
-    }
+    fontWeight: "600",
+    transition: "all 0.3s ease",
+    fontSize: "0.95rem",
   },
+
+  // Loading and error states
   loadingContainer: {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    height: "60vh",
+    minHeight: "60vh",
+    color: "white",
   },
-  loadingText: {
-    fontSize: "18px",
-    color: "#6b7280",
-    marginTop: "16px",
-    textAlign: "center",
-  },
+
   errorContainer: {
     display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
     justifyContent: "center",
-    height: "60vh",
+    alignItems: "center",
+    minHeight: "60vh",
+  },
+
+  errorContent: {
     textAlign: "center",
-    padding: "20px",
+    background: "rgba(255, 255, 255, 0.95)",
+    backdropFilter: "blur(20px)",
+    borderRadius: "16px",
+    padding: "40px",
+    boxShadow: "0 8px 32px rgba(0, 0, 0, 0.1)",
   },
+
   errorIcon: {
-    fontSize: "48px",
-    marginBottom: "16px",
+    fontSize: "4rem",
+    marginBottom: "20px",
   },
-  errorTitle: {
-    fontSize: "24px",
-    fontWeight: "600",
-    color: "#dc2626",
-    marginBottom: "12px",
-  },
-  errorText: {
-    fontSize: "16px",
-    color: "#6b7280",
-    marginBottom: "24px",
-    maxWidth: "400px",
-    lineHeight: "1.5",
-  },
-  errorButtons: {
+
+  errorActions: {
     display: "flex",
     gap: "12px",
-    flexWrap: "wrap",
     justifyContent: "center",
+    marginTop: "20px",
   },
-  retryButton: {
+
+  retryBtn: {
     padding: "12px 24px",
-    backgroundColor: "#2563eb",
+    background: "#3b82f6",
     color: "white",
     border: "none",
     borderRadius: "8px",
-    fontWeight: "500",
+    fontWeight: "600",
     cursor: "pointer",
-    transition: "background-color 0.2s",
-    ":hover": {
-      backgroundColor: "#1d4ed8",
-    }
-  },
-  backButton: {
-    padding: "12px 24px",
-    backgroundColor: "#6b7280",
-    color: "white",
-    border: "none",
-    borderRadius: "8px",
-    fontWeight: "500",
-    cursor: "pointer",
-    transition: "background-color 0.2s",
-    ":hover": {
-      backgroundColor: "#4b5563",
-    }
   },
 };
-
-// Add CSS animation for spinner
-const styleSheet = document.styleSheets[0];
-const keyframes = `
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-`;
-styleSheet.insertRule(keyframes, styleSheet.cssRules.length);
 
 export default SummaryPage;

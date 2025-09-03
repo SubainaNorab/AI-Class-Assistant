@@ -1,253 +1,232 @@
-// Frontend/src/components/FileManagerDashboard.jsx
+// Frontend/src/components/FileManagerDashboard.jsx - COMPLETE FIXED VERSION
 
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useToast } from './Toast';
-import DebugHelper from './DebugHelper';
 import './FileManagerDashboard.css';
 
 const FileManagerDashboard = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
-  const [selectedFiles, setSelectedFiles] = useState(new Set());
   const [processingFiles, setProcessingFiles] = useState(new Set());
+  
+  // Search and filter state
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
-  const [showDebug, setShowDebug] = useState(false);
+  
+  // Toast notification system
+  const [toasts, setToasts] = useState([]);
+  
+  const addToast = (message, type = 'info') => {
+    const id = Date.now();
+    setToasts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 3000);
+  };
 
-  const { user } = useAuth();
-  const { addToast } = useToast();
-
+  // Fetch user files - FIXED VERSION
   useEffect(() => {
     fetchFiles();
   }, []);
 
-  // Fetch files from the backend
   const fetchFiles = async () => {
     try {
       setLoading(true);
-      console.log('Fetching files for user:', user.id);
+      console.log('📁 Fetching files for user:', user?.email || 'unknown');
       
+      // Get token from localStorage - try different keys
+      const token = localStorage.getItem('authToken') || 
+                   localStorage.getItem('token') || 
+                   localStorage.getItem('access_token');
+
+      if (!user || !user.id) {
+        console.error('❌ No user ID available');
+        setFiles([]);
+        setLoading(false);
+        return;
+      }
+
       const response = await fetch(`http://localhost:5000/uploads?user_id=${user.id}`, {
+        method: 'GET',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` })
         }
       });
 
-      console.log('Response status:', response.status);
-      
+      console.log('📡 Response status:', response.status);
+
       if (response.ok) {
         const data = await response.json();
-        console.log('Files data received:', data);
+        console.log('📄 Raw API response:', data);
         
-        // Handle different response formats from your backend
-        const fileList = data.uploads || data.files || data || [];
-        console.log('Processed file list:', fileList);
+        // Handle different response formats
+        let fileList = [];
+        if (data.uploads) {
+          fileList = data.uploads;
+        } else if (data.files) {
+          fileList = data.files;
+        } else if (Array.isArray(data)) {
+          fileList = data;
+        }
         
-        setFiles(fileList);
+        console.log('📋 Processed files:', fileList);
+        setFiles(fileList || []);
         
         if (fileList.length === 0) {
-          console.log('No files found for user');
+          console.log('📂 No files found');
         }
-      } else if (response.status === 404) {
-        // Endpoint doesn't exist yet
-        console.error('Upload endpoint not found (404)');
-        setFiles([]);
-        addToast('Upload endpoint needs to be added to backend', 'error');
       } else {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('Failed to load files:', errorData);
-        addToast(`Failed to load files: ${errorData.error || 'Unknown error'}`, 'error');
+        const errorData = await response.text();
+        console.error('❌ API Error:', response.status, errorData);
+        setFiles([]);
+        
+        if (response.status === 400) {
+          addToast('Error: Invalid request parameters', 'error');
+        } else if (response.status === 401) {
+          addToast('Error: Please log in again', 'error');
+        } else {
+          addToast(`Error: Failed to load files (${response.status})`, 'error');
+        }
       }
     } catch (error) {
-      console.error('Error fetching files:', error);
+      console.error('🔥 Network error:', error);
       setFiles([]);
-      addToast('Network error loading files', 'error');
+      addToast('Network error: Please check your connection', 'error');
     } finally {
       setLoading(false);
     }
   };
 
   // Handle file upload
-  const handleFileUpload = async (fileList) => {
-    const files = Array.from(fileList);
+  const handleFileUpload = async (uploadedFiles) => {
+    const fileArray = Array.from(uploadedFiles);
+    if (fileArray.length === 0) return;
+
+    setUploading(true);
+    const formData = new FormData();
     
-    for (const file of files) {
-      if (!isValidFile(file)) continue;
+    fileArray.forEach(file => {
+      formData.append('files', file);
+    });
+    
+    formData.append('user_id', user.id);
+
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
       
-      try {
-        setUploading(true);
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('user_id', user.id);
+      const response = await fetch('http://localhost:5000/upload', {
+        method: 'POST',
+        headers: {
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        },
+        body: formData
+      });
 
-        const response = await fetch('http://localhost:5000/upload', {
-          method: 'POST',
-          body: formData,
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
-        });
-
+      if (response.ok) {
         const result = await response.json();
-
-        if (response.ok) {
-          addToast(`✅ ${file.name} uploaded successfully!`, 'success');
-          fetchFiles(); // Refresh file list
-        } else {
-          addToast(`❌ Upload failed: ${result.error || 'Unknown error'}`, 'error');
-        }
-      } catch (error) {
-        console.error('Upload error:', error);
-        addToast(`❌ Failed to upload ${file.name}`, 'error');
+        addToast(`Successfully uploaded ${fileArray.length} file(s)`, 'success');
+        fetchFiles(); // Refresh the file list
+      } else {
+        const error = await response.json();
+        addToast(`Upload failed: ${error.message || 'Unknown error'}`, 'error');
       }
+    } catch (error) {
+      console.error('Upload error:', error);
+      addToast('Upload error: Please try again', 'error');
+    } finally {
+      setUploading(false);
     }
-    setUploading(false);
   };
 
-  // File validation
-  const isValidFile = (file) => {
-    const maxSize = 10 * 1024 * 1024; // 10 MB
-    const allowedTypes = [
-      'application/pdf',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-      'text/plain',
-      'text/rtf',
-      'text/markdown',
-      'audio/mpeg',
-      'audio/mp3',
-      'audio/wav'
-    ];
-
-    if (file.size > maxSize) {
-      addToast(`❌ File "${file.name}" is too large. Maximum size is 10 MB.`, 'error');
-      return false;
-    }
-
-    if (!allowedTypes.includes(file.type) && !file.name.toLowerCase().match(/\.(pdf|docx|pptx|txt|rtf|md|mp3|wav)$/)) {
-      addToast(`❌ File type not supported for "${file.name}". Please upload PDF, DOCX, PPTX, TXT, MP3, or WAV files.`, 'error');
-      return false;
-    }
-
-    return true;
-  };
-
-  // File action handlers
-  const handleGenerateSummary = async (file) => {
-    if (!file.content && !file.text && !file.summary) {
-      addToast('This file needs to be processed first', 'warning');
+  // Navigation handlers - FIXED
+  const handleNavigateToSummary = async (file) => {
+    console.log('🎯 Navigating to summary for file:', file);
+    
+    const fileId = file._id || file.id;
+    if (!fileId) {
+      addToast('Error: No file ID found', 'error');
       return;
     }
 
+    setProcessingFiles(prev => new Set([...prev, fileId]));
+    
     try {
-      setProcessingFiles(prev => new Set([...prev, file._id || file.id]));
-      
-      const response = await fetch('http://localhost:5000/summarize', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({
-          text: file.content || file.text || file.summary,
-          user_id: user.id
-        })
-      });
-
-      const result = await response.json();
-      
-      if (response.ok) {
-        addToast('✅ Summary generated successfully!', 'success');
-        // You could show the summary in a modal or navigate to a summary page
-        console.log('Summary:', result.summary);
-      } else {
-        addToast(result.error || 'Failed to generate summary', 'error');
-      }
+      navigate(`/summary/${fileId}`);
+      addToast('Navigating to summary...', 'success');
     } catch (error) {
-      addToast('Error generating summary', 'error');
+      console.error('Navigation error:', error);
+      addToast('Navigation error', 'error');
     } finally {
-      setProcessingFiles(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(file._id || file.id);
-        return newSet;
-      });
+      setTimeout(() => {
+        setProcessingFiles(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(fileId);
+          return newSet;
+        });
+      }, 1000);
     }
   };
 
-  const handleGenerateFlashcards = async (file) => {
-    try {
-      setProcessingFiles(prev => new Set([...prev, file._id || file.id]));
-      
-      const response = await fetch('http://localhost:5000/generate-quiz', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({
-          summary: file.content || file.text || file.summary || 'No content available',
-          lecture_title: file.original_name || file.filename || 'Generated from file',
-          difficulty: 'Medium',
-          topic_tags: [file.category || 'general'],
-          user_id: user.id
-        })
-      });
+  const handleNavigateToFlashcards = async (file) => {
+    console.log('🎴 Navigating to flashcards for file:', file);
+    
+    const fileId = file._id || file.id;
+    if (!fileId) {
+      addToast('Error: No file ID found', 'error');
+      return;
+    }
 
-      const result = await response.json();
-      
-      if (response.ok) {
-        addToast('✅ Quiz and flashcards generated successfully!', 'success');
-        // Navigate to flashcards or show success message
-      } else {
-        addToast(result.error || 'Failed to generate flashcards', 'error');
-      }
+    setProcessingFiles(prev => new Set([...prev, fileId]));
+    
+    try {
+      navigate(`/flashcards/${fileId}`);
+      addToast('Navigating to flashcards...', 'success');
     } catch (error) {
-      addToast('Error generating flashcards', 'error');
+      console.error('Navigation error:', error);
+      addToast('Navigation error', 'error');
     } finally {
-      setProcessingFiles(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(file._id || file.id);
-        return newSet;
-      });
+      setTimeout(() => {
+        setProcessingFiles(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(fileId);
+          return newSet;
+        });
+      }, 1000);
     }
   };
 
-  const handleExplainIdeas = async (file) => {
-    try {
-      setProcessingFiles(prev => new Set([...prev, file._id || file.id]));
-      
-      const response = await fetch('http://localhost:5000/explain', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({
-          fileId: file._id || file.id,
-          userId: user.id
-        })
-      });
+  const handleNavigateToExplain = async (file) => {
+    console.log('💡 Navigating to explain for file:', file);
+    
+    const fileId = file._id || file.id;
+    if (!fileId) {
+      addToast('Error: No file ID found', 'error');
+      return;
+    }
 
-      const result = await response.json();
-      
-      if (response.ok) {
-        addToast('✅ Complex ideas explained successfully!', 'success');
-        // Navigate to explain ideas page or show results
-        window.location.href = '/explain';
-      } else {
-        addToast(result.error || 'Failed to explain ideas', 'error');
-      }
+    setProcessingFiles(prev => new Set([...prev, fileId]));
+    
+    try {
+      navigate(`/explain/${fileId}`);
+      addToast('Navigating to explanation...', 'success');
     } catch (error) {
-      addToast('Error explaining ideas', 'error');
+      console.error('Navigation error:', error);
+      addToast('Navigation error', 'error');
     } finally {
-      setProcessingFiles(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(file._id || file.id);
-        return newSet;
-      });
+      setTimeout(() => {
+        setProcessingFiles(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(fileId);
+          return newSet;
+        });
+      }, 1000);
     }
   };
 
@@ -323,31 +302,30 @@ const FileManagerDashboard = () => {
     <div className="file-manager-dashboard">
       <div className="dashboard-container">
         
+        {/* Toast Notifications */}
+        <div className="toast-container">
+          {toasts.map((toast) => (
+            <div
+              key={toast.id}
+              className={`toast toast-${toast.type}`}
+              style={{
+                backgroundColor: toast.type === 'error' ? '#fee2e2' : 
+                               toast.type === 'success' ? '#dcfce7' : '#fef3c7',
+                color: toast.type === 'error' ? '#dc2626' :
+                       toast.type === 'success' ? '#16a34a' : '#d97706'
+              }}
+            >
+              {toast.message}
+            </div>
+          ))}
+        </div>
+        
         {/* Header */}
         <div className="dashboard-header">
           <div className="header-content">
             <h1>📚 Study Materials Dashboard</h1>
             <p>Upload, analyze, and study your documents with AI-powered tools</p>
           </div>
-          
-          {/* Temporary Debug Button */}
-          <button 
-            onClick={() => setShowDebug(true)}
-            style={{
-              position: 'absolute',
-              top: '10px',
-              right: '10px',
-              background: '#ef4444',
-              color: 'white',
-              border: 'none',
-              padding: '6px 12px',
-              borderRadius: '4px',
-              fontSize: '12px',
-              cursor: 'pointer'
-            }}
-          >
-            🔍 Debug
-          </button>
         </div>
 
         {/* Upload Area */}
@@ -362,140 +340,112 @@ const FileManagerDashboard = () => {
               <div className="upload-icon">
                 {uploading ? <div className="spinner small"></div> : '📤'}
               </div>
-              <h3>{uploading ? 'Uploading...' : 'Upload Study Materials'}</h3>
-              <p>Drag and drop files here or click to browse</p>
-              <div className="supported-formats">
-                <span>Supported: PDF, DOCX, PPTX, TXT, MP3, WAV</span>
-              </div>
+              <h3>{uploading ? 'Uploading...' : 'Upload Documents'}</h3>
+              <p>{uploading ? 'Please wait...' : 'Drag and drop your files here, or click to browse'}</p>
+              <p className="upload-hint">Supports PDF, DOCX, TXT, and more</p>
             </div>
           </div>
-
+          
           <input
-            id="fileInput"
             type="file"
+            id="fileInput"
             multiple
-            accept=".pdf,.docx,.pptx,.txt,.rtf,.md,.mp3,.wav"
+            accept=".pdf,.doc,.docx,.txt,.ppt,.pptx"
             style={{ display: 'none' }}
             onChange={(e) => handleFileUpload(e.target.files)}
+            disabled={uploading}
           />
         </div>
 
         {/* File Controls */}
-        {files.length > 0 && (
-          <div className="file-controls">
-            <div className="search-filter">
-              <input
-                type="text"
-                placeholder="Search files..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="search-input"
-              />
-              <select
-                value={filterType}
-                onChange={(e) => setFilterType(e.target.value)}
-                className="filter-select"
-              >
-                <option value="all">All Types</option>
-                <option value="pdfs">PDFs</option>
-                <option value="documents">Documents</option>
-                <option value="presentations">Presentations</option>
-                <option value="audio">Audio</option>
-              </select>
-            </div>
-            <div className="file-stats">
-              {filteredFiles.length} of {files.length} files
-            </div>
+        <div className="file-controls">
+          <div className="search-filter">
+            <input
+              type="text"
+              placeholder="Search files..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="search-input"
+            />
+            <select
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value)}
+              className="filter-select"
+            >
+              <option value="all">All Files</option>
+              <option value="pdfs">PDFs</option>
+              <option value="documents">Documents</option>
+              <option value="presentations">Presentations</option>
+              <option value="audio">Audio</option>
+            </select>
           </div>
-        )}
+          
+          <div className="file-stats">
+            {filteredFiles.length} of {files.length} files
+          </div>
+        </div>
 
         {/* Files Grid */}
-        {filteredFiles.length > 0 ? (
-          <div className="files-grid">
-            {filteredFiles.map((file, index) => (
-              <div key={file._id || file.id || index} className="file-card">
-                <div className="file-header">
-                  <div className="file-icon">
-                    {getFileIcon(file)}
-                  </div>
-                  <div className="file-info">
-                    <h3>{file.original_name || file.filename || 'Unknown file'}</h3>
-                    <p className="file-meta">
-                      {file.category?.toUpperCase() || 'FILE'} • {formatFileSize(file.size || file.file_size)}
-                    </p>
-                    <p className="file-date">
-                      {file.uploaded_at || file.upload_timestamp ? 
-                        new Date(file.uploaded_at || file.upload_timestamp).toLocaleDateString() :
-                        'Unknown date'
-                      }
-                    </p>
-                  </div>
-                </div>
-
-                <div className="file-actions">
-                  <button
-                    className="action-btn primary"
-                    onClick={() => handleGenerateSummary(file)}
-                    disabled={processingFiles.has(file._id || file.id)}
-                  >
-                    {processingFiles.has(file._id || file.id) ? (
-                      <><div className="spinner tiny"></div> Processing...</>
-                    ) : (
-                      <>📝 Summarize</>
-                    )}
-                  </button>
-
-                  <button
-                    className="action-btn secondary"
-                    onClick={() => handleGenerateFlashcards(file)}
-                    disabled={processingFiles.has(file._id || file.id)}
-                  >
-                    {processingFiles.has(file._id || file.id) ? (
-                      <><div className="spinner tiny"></div> Processing...</>
-                    ) : (
-                      <>🎯 Flashcards</>
-                    )}
-                  </button>
-
-                  <button
-                    className="action-btn accent"
-                    onClick={() => handleExplainIdeas(file)}
-                    disabled={processingFiles.has(file._id || file.id)}
-                  >
-                    {processingFiles.has(file._id || file.id) ? (
-                      <><div className="spinner tiny"></div> Processing...</>
-                    ) : (
-                      <>🧠 Explain</>
-                    )}
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : files.length === 0 ? (
+        {filteredFiles.length === 0 ? (
           <div className="empty-state">
             <div className="empty-content">
               <div className="empty-icon">📂</div>
-              <h3>No Files Yet</h3>
-              <p>Upload your first study material to get started with AI-powered learning tools!</p>
+              <h3>No files found</h3>
+              <p>Upload some documents to get started with AI-powered studying!</p>
             </div>
           </div>
         ) : (
-          <div className="empty-state">
-            <div className="empty-content">
-              <div className="empty-icon">🔍</div>
-              <h3>No Files Match Your Search</h3>
-              <p>Try adjusting your search terms or filter settings.</p>
-            </div>
+          <div className="files-grid">
+            {filteredFiles.map((file) => {
+              const fileId = file._id || file.id;
+              const isProcessing = processingFiles.has(fileId);
+              
+              return (
+                <div key={fileId} className="file-card">
+                  <div className="file-header">
+                    <div className="file-icon">
+                      {getFileIcon(file)}
+                    </div>
+                    <div className="file-info">
+                      <h3>{file.original_name || file.filename || 'Untitled'}</h3>
+                      <p className="file-meta">
+                        {file.category || 'Unknown'} • {formatFileSize(file.size)}
+                      </p>
+                      <p className="file-date">
+                        {file.upload_date ? new Date(file.upload_date).toLocaleDateString() : 'Recently uploaded'}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="file-actions">
+                    <button
+                      className="action-btn primary"
+                      onClick={() => handleNavigateToSummary(file)}
+                      disabled={isProcessing}
+                    >
+                      {isProcessing ? '⏳' : '📄'} Summarize
+                    </button>
+                    <button
+                      className="action-btn secondary"
+                      onClick={() => handleNavigateToFlashcards(file)}
+                      disabled={isProcessing}
+                    >
+                      {isProcessing ? '⏳' : '🎴'} Flashcards
+                    </button>
+                    <button
+                      className="action-btn accent"
+                      onClick={() => handleNavigateToExplain(file)}
+                      disabled={isProcessing}
+                    >
+                      {isProcessing ? '⏳' : '💡'} Explain
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
-
       </div>
-      
-      {/* Debug Helper Modal */}
-      {showDebug && (
-        <DebugHelper onClose={() => setShowDebug(false)} />
-      )}
     </div>
   );
 };

@@ -95,62 +95,146 @@ def get_file_category(filename):
 
 # ===== FILE ROUTES =====
 
+# Backend/app.py - COMPLETE FIXED /uploads endpoint
+
 @app.route('/uploads', methods=['GET'])
 def get_uploads():
-    """Get files from your existing database structure"""
+    """Get files from your existing database structure - COMPLETE FIXED VERSION"""
     try:
         user_id = request.args.get('user_id')
         
+        print(f"📡 /uploads called with user_id: {user_id}")
+        print(f"📡 Request headers: {dict(request.headers)}")
+        print(f"📡 Request args: {dict(request.args)}")
+        
         if not user_id:
-            return jsonify({'error': 'user_id is required'}), 400
+            print("❌ Missing user_id parameter")
+            return jsonify({
+                'success': False,
+                'error': 'user_id parameter is required',
+                'received_params': dict(request.args)
+            }), 400
         
         print(f"📁 Fetching files for user: {user_id}")
         
         # Access your existing files collection
         files_collection = db["files"]
         
-        # For now, get all files (we'll add user filtering when upload system is fixed)
-        files_cursor = files_collection.find().sort("createdAt", -1)
+        # Get all files for now (add user filtering later)
+        try:
+            files_cursor = files_collection.find().sort("createdAt", -1)
+            total_count = files_collection.count_documents({})
+            print(f"📊 Total files in database: {total_count}")
+        except Exception as db_error:
+            print(f"❌ Database query error: {db_error}")
+            return jsonify({
+                'success': False,
+                'error': f'Database error: {str(db_error)}'
+            }), 500
         
         uploads = []
-        for file_doc in files_cursor:
-            file_id = str(file_doc["_id"])
-            
-            # Handle your current data structure
-            upload_item = {
-                "_id": file_id,
-                "original_name": (
-                    file_doc.get("original_name") or 
-                    file_doc.get("filename") or 
-                    f"Document {file_id[-8:]}"  # Use last 8 chars of ID as readable name
-                ),
-                "filename": file_doc.get("filename", f"doc_{file_id[-8:]}.txt"),
-                "category": file_doc.get("category", "documents"),
-                "size": (
-                    file_doc.get("size") or 
-                    len(str(file_doc.get("content", "")))
-                ),
-                "uploaded_at": file_doc.get("uploaded_at") or file_doc.get("createdAt"),
-                "uploaded_by": file_doc.get("uploaded_by", user_id),
-                "status": file_doc.get("status", "uploaded"),
-                "content": file_doc.get("content", ""),
-                "text": file_doc.get("text", file_doc.get("content", "")),
-                "summary": file_doc.get("summary", ""),
-                "text_length": len(str(file_doc.get("content", "")))
-            }
-            uploads.append(upload_item)
+        processed_count = 0
         
-        print(f"✅ Returning {len(uploads)} files")
+        for file_doc in files_cursor:
+            try:
+                processed_count += 1
+                file_id = str(file_doc["_id"])
+                
+                # Create consistent file object
+                upload_item = {
+                    "_id": file_id,
+                    "id": file_id,
+                    "original_name": (
+                        file_doc.get("original_name") or 
+                        file_doc.get("filename") or 
+                        f"Document {file_id[-8:]}"
+                    ),
+                    "filename": file_doc.get("filename", f"doc_{file_id[-8:]}.txt"),
+                    "category": file_doc.get("category", "documents"),
+                    "size": file_doc.get("size") or len(str(file_doc.get("content", ""))),
+                    "upload_date": (
+                        file_doc.get("upload_date") or 
+                        file_doc.get("createdAt") or 
+                        file_doc.get("uploaded_at") or
+                        "2025-01-01T00:00:00.000Z"
+                    ),
+                    "user_id": file_doc.get("user_id", user_id),
+                    "status": file_doc.get("status", "uploaded"),
+                    "content": file_doc.get("content", ""),
+                    "text": file_doc.get("text", file_doc.get("content", "")),
+                    "summary": file_doc.get("summary", "")
+                }
+                uploads.append(upload_item)
+                
+            except Exception as item_error:
+                print(f"⚠️ Error processing file {file_doc.get('_id', 'unknown')}: {item_error}")
+                continue
+        
+        print(f"✅ Successfully processed {len(uploads)} out of {processed_count} files")
+        
+        # Return consistent response format
+        response_data = {
+            'success': True,
+            'files': uploads,
+            'uploads': uploads,  # Include both for compatibility
+            'total': len(uploads),
+            'user_id': user_id,
+            'message': f'Found {len(uploads)} files'
+        }
+        
+        print(f"📤 Returning response with {len(uploads)} files")
+        return jsonify(response_data), 200
+
+    except Exception as e:
+        print(f"❌ Critical error in /uploads endpoint: {e}")
+        import traceback
+        traceback.print_exc()
         
         return jsonify({
-            "success": True,
-            "uploads": uploads,
-            "count": len(uploads)
-        }), 200
+            'success': False,
+            'error': f'Internal server error: {str(e)}',
+            'endpoint': '/uploads'
+        }), 500
+
+
+# ALSO ADD: Debug endpoint to help troubleshoot
+@app.route('/debug/uploads', methods=['GET'])
+def debug_uploads():
+    """Debug endpoint to check uploads functionality"""
+    try:
+        user_id = request.args.get('user_id', 'test_user')
+        
+        files_collection = db["files"]
+        total_files = files_collection.count_documents({})
+        
+        # Get first few files as samples
+        sample_files = list(files_collection.find().limit(3))
+        
+        debug_info = {
+            'database_connected': True,
+            'total_files_in_db': total_files,
+            'sample_files': [
+                {
+                    '_id': str(f.get('_id', 'missing')),
+                    'has_content': bool(f.get('content')),
+                    'has_filename': bool(f.get('filename')),
+                    'has_original_name': bool(f.get('original_name')),
+                    'keys': list(f.keys())
+                } for f in sample_files
+            ],
+            'user_id_provided': user_id,
+            'request_method': request.method,
+            'request_headers': dict(request.headers),
+            'collections_available': db.list_collection_names()
+        }
+        
+        return jsonify(debug_info), 200
         
     except Exception as e:
-        print(f"❌ Error in /uploads: {str(e)}")
-        return jsonify({"error": str(e), "success": False}), 500
+        return jsonify({
+            'error': str(e),
+            'database_connected': False
+        }), 500
 
 @app.route('/upload', methods=['POST'])
 def upload_file():

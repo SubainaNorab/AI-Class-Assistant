@@ -1,4 +1,4 @@
-// Frontend/src/App.js - Updated with Unified Dashboard
+// Frontend/src/App.js - UPDATED WITH PROPER DYNAMIC ROUTES
 
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
@@ -7,13 +7,18 @@ import ProtectedRoute from './components/ProtectedRoute';
 import LoginPage from './components/LoginPage';
 import SignupPage from './components/SignupPage';
 
-// Import components - NEW: FileManagerDashboard as main landing page
+// Import components
 import FileManagerDashboard from './components/FileManagerDashboard';
 import FlashcardTestPage from './FlashcardTestPage';
 import QuizListPage from './QuizListPage'; 
 import StatsPage from './components/StatsPage';
 import ExplainIdeasPage from './components/ExplainIdeasPage';
 import SummaryPage from "./summarypage";
+
+// ADDED: New components for file-specific pages
+import FileSpecificFlashcards from './components/FileSpecificFlashcards';
+import FileSpecificExplain from './components/FileSpecificExplain';
+
 import './App.css';
 
 // Enhanced Navigation Component with Authentication
@@ -133,7 +138,7 @@ function App() {
               />
               
               {/* Protected Routes */}
-              {/* NEW: Dashboard as main landing page */}
+              {/* Dashboard as main landing page */}
               <Route 
                 path="/" 
                 element={
@@ -143,16 +148,7 @@ function App() {
                 } 
               />
               
-              {/* Flashcards moved to /flashcards */}
-              <Route 
-                path="/flashcards" 
-                element={
-                  <ProtectedRoute>
-                    <FlashcardTestPage />
-                  </ProtectedRoute>
-                } 
-              />
-              {/* ✅ File-specific summary page */}
+              {/* ✅ UPDATED: File-specific summary page */}
               <Route 
                 path="/summary/:fileId" 
                 element={
@@ -161,6 +157,37 @@ function App() {
                   </ProtectedRoute>
                 } 
               />
+              
+              {/* ✅ ADDED: File-specific flashcards page */}
+              <Route 
+                path="/flashcards/:fileId" 
+                element={
+                  <ProtectedRoute>
+                    <FileSpecificFlashcards />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              {/* ✅ ADDED: File-specific explain page */}
+              <Route 
+                path="/explain/:fileId" 
+                element={
+                  <ProtectedRoute>
+                    <FileSpecificExplain />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              {/* General pages (without file ID) */}
+              <Route 
+                path="/flashcards" 
+                element={
+                  <ProtectedRoute>
+                    <FlashcardTestPage />
+                  </ProtectedRoute>
+                } 
+              />
+              
               <Route 
                 path="/quiz" 
                 element={
