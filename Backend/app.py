@@ -2,7 +2,15 @@
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from summarizer import generate_summary
+# Update your import line
+from summarizer import (
+    generate_summary, 
+    generate_detailed_summary, 
+    generate_structured_summary,
+    generate_long_structured_summary,  # Add this
+    generate_extended_summary,         # Add this
+    generate_multi_level_summary       # Add this
+)
 from utils.quiz_generator import generate_quiz_and_flashcards
 from utils.pdf_reader import extract_text_from_pdf
 from werkzeug.utils import secure_filename
@@ -99,9 +107,10 @@ def get_file_category(filename):
 
 @app.route('/uploads', methods=['GET'])
 def get_uploads():
-    """Get files from your existing database structure - COMPLETE FIXED VERSION"""
+    """Get files from your existing database structure with enhanced summary data"""
     try:
         user_id = request.args.get('user_id')
+        include_structured = request.args.get('structured', 'false').lower() == 'true'
         
         print(f"📡 /uploads called with user_id: {user_id}")
         print(f"📡 Request headers: {dict(request.headers)}")
@@ -140,7 +149,21 @@ def get_uploads():
                 processed_count += 1
                 file_id = str(file_doc["_id"])
                 
-                # Create consistent file object
+                # Handle date formatting safely
+                upload_date = file_doc.get("upload_date") or file_doc.get("createdAt") or file_doc.get("uploaded_at")
+                if upload_date and hasattr(upload_date, 'isoformat'):
+                    upload_date = upload_date.isoformat()
+                elif not upload_date:
+                    upload_date = "2025-01-01T00:00:00.000Z"
+                
+                # Handle last_summarized date
+                last_summarized = file_doc.get("last_summarized")
+                if last_summarized and hasattr(last_summarized, 'isoformat'):
+                    last_summarized = last_summarized.isoformat()
+                else:
+                    last_summarized = None
+                
+                # Create consistent file object with enhanced summary data
                 upload_item = {
                     "_id": file_id,
                     "id": file_id,
@@ -152,18 +175,38 @@ def get_uploads():
                     "filename": file_doc.get("filename", f"doc_{file_id[-8:]}.txt"),
                     "category": file_doc.get("category", "documents"),
                     "size": file_doc.get("size") or len(str(file_doc.get("content", ""))),
-                    "upload_date": (
-                        file_doc.get("upload_date") or 
-                        file_doc.get("createdAt") or 
-                        file_doc.get("uploaded_at") or
-                        "2025-01-01T00:00:00.000Z"
-                    ),
-                    "user_id": file_doc.get("user_id", user_id),
+                    "upload_date": upload_date,
+                    "user_id": file_doc.get("user_id") or file_doc.get("uploaded_by", user_id),
                     "status": file_doc.get("status", "uploaded"),
                     "content": file_doc.get("content", ""),
                     "text": file_doc.get("text", file_doc.get("content", "")),
-                    "summary": file_doc.get("summary", "")
+                    "summary": file_doc.get("summary", ""),
+                    
+                    # Enhanced summary metadata
+                    "summary_type": file_doc.get("summary_type", "unknown"),
+                    "summary_length": file_doc.get("summary_length", len(file_doc.get("summary", ""))),
+                    "text_length": file_doc.get("text_length", len(str(file_doc.get("content", "")))),
+                    "compression_ratio": file_doc.get("compression_ratio", 0),
+                    "last_summarized": last_summarized,
+                    "processing_error": file_doc.get("processing_error"),
+                    
+                    # File processing status
+                    "has_summary": bool(file_doc.get("summary", "").strip()),
+                    "has_content": bool(file_doc.get("content", "").strip()),
+                    "is_processed": bool(file_doc.get("summary", "").strip() and file_doc.get("content", "").strip()),
+                    
+                    # Additional metadata
+                    "subfolder": file_doc.get("subfolder", "documents"),
+                    "filepath": file_doc.get("filepath", "")
                 }
+                
+                # Include structured summary if requested and available
+                if include_structured and file_doc.get("structured_summary"):
+                    upload_item["structured_summary"] = file_doc["structured_summary"]
+                    upload_item["has_structured_summary"] = True
+                else:
+                    upload_item["has_structured_summary"] = bool(file_doc.get("structured_summary"))
+                
                 uploads.append(upload_item)
                 
             except Exception as item_error:
@@ -172,17 +215,53 @@ def get_uploads():
         
         print(f"✅ Successfully processed {len(uploads)} out of {processed_count} files")
         
-        # Return consistent response format
+        # Calculate summary statistics
+        total_files = len(uploads)
+        processed_files = len([f for f in uploads if f['is_processed']])
+        files_with_summaries = len([f for f in uploads if f['has_summary']])
+        files_with_structured = len([f for f in uploads if f['has_structured_summary']])
+        
+        # Calculate average compression ratio for processed files
+        compression_ratios = [f['compression_ratio'] for f in uploads if f['compression_ratio'] > 0]
+        avg_compression = sum(compression_ratios) / len(compression_ratios) if compression_ratios else 0
+        
+        # Return enhanced response format
         response_data = {
             'success': True,
             'files': uploads,
             'uploads': uploads,  # Include both for compatibility
-            'total': len(uploads),
+            'total': total_files,
             'user_id': user_id,
-            'message': f'Found {len(uploads)} files'
+            'message': f'Found {total_files} files',
+            
+            # Enhanced statistics
+            'statistics': {
+                'total_files': total_files,
+                'processed_files': processed_files,
+                'files_with_summaries': files_with_summaries,
+                'files_with_structured_summaries': files_with_structured,
+                'processing_rate': round((processed_files / total_files * 100), 1) if total_files > 0 else 0,
+                'average_compression_ratio': round(avg_compression, 1),
+                'summary_types': {
+                    'brief': len([f for f in uploads if f.get('summary_type') == 'brief']),
+                    'detailed': len([f for f in uploads if f.get('summary_type') == 'detailed']),
+                    'comprehensive': len([f for f in uploads if f.get('summary_type') == 'comprehensive']),
+                    'structured': len([f for f in uploads if f.get('summary_type') == 'structured']),
+                    'unknown': len([f for f in uploads if f.get('summary_type') == 'unknown'])
+                }
+            },
+            
+            # Filtering and sorting options
+            'filters': {
+                'categories': list(set([f['category'] for f in uploads])),
+                'summary_types': list(set([f.get('summary_type', 'unknown') for f in uploads])),
+                'processing_status': ['all', 'processed', 'unprocessed', 'with_summaries', 'with_structured']
+            }
         }
         
-        print(f"📤 Returning response with {len(uploads)} files")
+        print(f"📤 Returning response with {len(uploads)} files and enhanced metadata")
+        print(f"📊 Processing stats: {processed_files}/{total_files} processed, {files_with_summaries} with summaries")
+        
         return jsonify(response_data), 200
 
     except Exception as e:
@@ -195,7 +274,6 @@ def get_uploads():
             'error': f'Internal server error: {str(e)}',
             'endpoint': '/uploads'
         }), 500
-
 
 # ALSO ADD: Debug endpoint to help troubleshoot
 @app.route('/debug/uploads', methods=['GET'])
@@ -238,22 +316,57 @@ def debug_uploads():
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
-    """Enhanced upload that stores proper metadata in your database"""
+    """Enhanced upload with support for both 'file' and 'files' keys"""
     try:
-        if 'file' not in request.files:
-            return jsonify({'error': 'No file provided'}), 400
+        print("=" * 50)
+        print("📤 UPLOAD ENDPOINT CALLED")
+        print("=" * 50)
         
-        file = request.files['file']
+        # Debug request details
+        print(f"📦 Request method: {request.method}")
+        print(f"📦 Content-Type: {request.content_type}")
+        print(f"📦 Form data keys: {list(request.form.keys())}")
+        print(f"📦 Files keys: {list(request.files.keys())}")
+        
+        # Check for file in both 'file' and 'files' keys
+        file = None
+        file_key = None
+        
+        if 'file' in request.files and request.files['file'].filename != '':
+            file = request.files['file']
+            file_key = 'file'
+            print("✅ Found file with key 'file'")
+        elif 'files' in request.files and request.files['files'].filename != '':
+            file = request.files['files']
+            file_key = 'files'
+            print("✅ Found file with key 'files'")
+        
         user_id = request.form.get('user_id', 'anonymous')
         
-        if file.filename == '':
-            return jsonify({'error': 'No file selected'}), 400
+        if not file or file.filename == '':
+            error_msg = 'No valid file provided'
+            print(f"❌ {error_msg}")
+            print(f"❌ Available files: {list(request.files.keys())}")
+            for key in request.files.keys():
+                f = request.files[key]
+                print(f"❌ File[{key}]: '{f.filename}' (size: {getattr(f, 'content_length', 0)})")
+            
+            return jsonify({
+                'success': False,
+                'error': error_msg,
+                'received_files': list(request.files.keys()),
+                'file_details': {key: {'filename': request.files[key].filename, 
+                                     'size': getattr(request.files[key], 'content_length', 0)} 
+                               for key in request.files.keys()}
+            }), 400
         
-        if not allowed_file(file.filename):
-            return jsonify({'error': f'File type not allowed. Supported: {", ".join(sum(UPLOAD_SUBFOLDERS.values(), []))}'}), 400
-
+        print(f"✅ File received via key '{file_key}': {file.filename}")
+        print(f"✅ User ID: {user_id}")
+        print(f"✅ File size: {getattr(file, 'content_length', 'unknown')} bytes")
+        
+        # Secure filename and create unique name
         filename = secure_filename(file.filename)
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S_%f')
         unique_filename = f"{timestamp}_{filename}"
         
         # Determine file category and subfolder  
@@ -265,43 +378,64 @@ def upload_file():
         
         # Save file to disk
         file.save(filepath)
-        print(f"📁 File saved to: {filepath}")
+        print(f"💾 File saved to: {filepath}")
+        
+        # Verify file was actually saved
+        if not os.path.exists(filepath):
+            error_msg = f'File failed to save to disk: {filepath}'
+            print(f"❌ {error_msg}")
+            return jsonify({'success': False, 'error': error_msg}), 500
+        
+        actual_size = os.path.getsize(filepath)
+        print(f"✅ File saved successfully. Actual size: {actual_size} bytes")
         
         category = get_file_category(file.filename)
         
         # Create comprehensive document for your database
         file_doc = {
-            # Original metadata
-            'original_name': file.filename,  # This is what was missing!
+            'original_name': file.filename,
             'filename': unique_filename,
             'category': category,
             'subfolder': subfolder,
-            'size': os.path.getsize(filepath),
-            'uploaded_by': user_id,  # Important: link to user
+            'size': actual_size,
+            'uploaded_by': user_id,
             'uploaded_at': datetime.utcnow(),
             'status': 'uploaded',
             'filepath': filepath,
-            
-            # Timestamps (matching your existing format)
             'createdAt': datetime.utcnow(),
-            'updatedAt': datetime.utcnow()
+            'updatedAt': datetime.utcnow(),
+            'received_via_key': file_key  # Track which key was used
         }
         
         # Process text content for documents/PDFs
+        # In your upload_file() function, update the text processing section:
         if category in ['documents', 'pdfs']:
             try:
-                extracted_text = extract_text_from_pdf(filepath)
-                summary = generate_summary(extracted_text)
+                if category == 'pdfs':
+                    extracted_text = extract_text_from_pdf(filepath)
+                else:
+                    # For text files, read directly
+                    with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+                        extracted_text = f.read()
+                
+                # Generate both standard and structured summaries
+                summary = generate_detailed_summary(extracted_text)
+                structured_summary = generate_long_structured_summary(extracted_text, "detailed")
                 
                 file_doc.update({
                     'text': extracted_text,
-                    'content': extracted_text,  # Your existing field
-                    'summary': summary,        # Your existing field
+                    'content': extracted_text,
+                    'summary': summary,
+                    'structured_summary': structured_summary,  # Add structured summary
                     'text_length': len(extracted_text),
-                    'summary_length': len(summary) if summary else 0
+                    'summary_length': len(summary) if summary else 0,
+                    'compression_ratio': round(len(summary) / len(extracted_text) * 100, 2) if extracted_text and len(extracted_text) > 0 else 0,
+                    'summary_type': 'detailed',
+                    'last_summarized': datetime.utcnow(),
+                    'has_structured_summary': True  # Flag indicating structured summary exists
                 })
                 
-                print(f"📝 Processed text content: {len(extracted_text)} chars")
+                print(f"📝 Processed text content: {len(extracted_text)} chars, summary: {len(summary)} chars")
                 
             except Exception as e:
                 print(f"⚠️ Text processing error: {e}")
@@ -309,8 +443,10 @@ def upload_file():
                     'text': '',
                     'content': '',
                     'summary': 'Failed to process text content',
+                    'structured_summary': None,
                     'text_length': 0,
-                    'processing_error': str(e)
+                    'processing_error': str(e),
+                    'has_structured_summary': False
                 })
         
         # Store in your existing files collection
@@ -327,16 +463,19 @@ def upload_file():
             'original_name': file.filename,
             'filename': unique_filename,
             'category': category,
-            'size': file_doc['size'],
-            'processed': len(file_doc.get('content', '')) > 0
+            'size': actual_size,
+            'processed': len(file_doc.get('content', '')) > 0,
+            'has_summary': bool(file_doc.get('summary', '').strip()),
+            'received_via_key': file_key
         }), 200
         
     except Exception as e:
-        print(f"❌ Upload error: {str(e)}")
+        error_msg = f'Upload failed: {str(e)}'
+        print(f"❌ {error_msg}")
         import traceback
         traceback.print_exc()
-        return jsonify({'error': f'Upload failed: {str(e)}'}), 500
-
+        return jsonify({'success': False, 'error': error_msg}), 500
+    
 @app.route('/admin/fix-files', methods=['POST'])
 def fix_existing_files():
     """One-time fix for existing files in database - adds missing metadata"""
@@ -1077,30 +1216,173 @@ def get_progress():
 # ===== TEXT SUMMARIZATION =====
 @app.route('/summarize', methods=['POST'])
 def summarize_text():
-    """Enhanced text summarization with tracking"""
+    """Enhanced text summarization with structured and multi-level options"""
     try:
         data = request.get_json()
         text = data.get('text', '')
         user_id = data.get('user_id', 'anonymous')
+        summary_type = data.get('type', 'detailed')  # brief, detailed, comprehensive, extended
+        output_format = data.get('format', 'text')   # text, structured, multi-level
         
         if not text:
             return jsonify({'error': 'No text provided'}), 400
         
-        summary = generate_summary(text)
+        if len(text.strip()) < 50:
+            return jsonify({'error': 'Text too short to summarize (minimum 50 characters)'}), 400
+        
+        # Generate appropriate summary based on format
+        if output_format == 'structured':
+            # Use the new structured summary function
+            structured_result = generate_long_structured_summary(text, summary_type)
+            return jsonify({
+                'success': True,
+                'result': structured_result,
+                'original_length': len(text),
+                'summary_type': 'structured',
+                'format': output_format
+            })
+            
+        elif output_format == 'multi-level':
+            # Generate summaries at all levels
+            multi_level_result = generate_multi_level_summary(text)
+            return jsonify({
+                'success': True,
+                'result': multi_level_result,
+                'original_length': len(text),
+                'summary_type': 'multi-level',
+                'format': output_format
+            })
+            
+        elif summary_type == 'extended':
+            # Generate extra-long summary
+            target_length = data.get('target_length', 1000)
+            summary = generate_extended_summary(text, target_length)
+            return jsonify({
+                'success': True,
+                'summary': summary,
+                'original_length': len(text),
+                'summary_length': len(summary),
+                'compression_ratio': round(len(summary) / len(text) * 100, 1),
+                'summary_type': summary_type
+            })
+            
+        else:
+            # Standard summary (brief, detailed, comprehensive)
+            summary = generate_summary(text, summary_type)
+            return jsonify({
+                'success': True,
+                'summary': summary,
+                'original_length': len(text),
+                'summary_length': len(summary),
+                'compression_ratio': round(len(summary) / len(text) * 100, 1),
+                'summary_type': summary_type
+            })
+            
+    except Exception as e:
+        print(f"❌ Summarization error: {str(e)}")
+        return jsonify({'success': False, 'error': f'Summarization failed: {str(e)}'}), 500
+
+# 4. Add new endpoint for re-summarizing existing files
+@app.route('/file/<file_id>/re-summarize', methods=['POST'])
+def re_summarize_file(file_id):
+    """Re-generate summary for existing file with enhanced options"""
+    try:
+        data = request.get_json() or {}
+        summary_type = data.get('type', 'detailed')
+        output_format = data.get('format', 'standard')  # standard, structured, multi-level
+        
+        files_collection = db["files"]
+        
+        # Build query safely
+        if ObjectId.is_valid(file_id):
+            query = {"$or": [{"filename": file_id}, {"_id": ObjectId(file_id)}]}
+        else:
+            query = {"filename": file_id}
+
+        file_doc = files_collection.find_one(query)
+        
+        if not file_doc:
+            return jsonify({"success": False, "error": "File not found"}), 404
+        
+        text_content = file_doc.get('content', '') or file_doc.get('text', '')
+        
+        if not text_content:
+            return jsonify({"success": False, "error": "No text content to summarize"}), 400
+        
+        # Generate new summary based on format
+        update_data = {
+            'last_summarized': datetime.utcnow(),
+            'summary_type': summary_type
+        }
+        
+        if output_format == 'structured':
+            result = generate_long_structured_summary(text_content, summary_type)
+            update_data.update({
+                'summary': result.get('full_summary', ''),
+                'structured_summary': result,
+                'summary_length': len(result.get('full_summary', '')),
+                'compression_ratio': round(len(result.get('full_summary', '')) / len(text_content) * 100, 1),
+                'has_structured_summary': True
+            })
+            response_data = {
+                "structured_summary": result,
+                "standard_summary": result.get('full_summary', '')
+            }
+            
+        elif output_format == 'multi-level':
+            result = generate_multi_level_summary(text_content)
+            # Store the comprehensive summary as the main summary
+            main_summary = result.get('comprehensive_summary', result.get('detailed_summary', ''))
+            update_data.update({
+                'summary': main_summary,
+                'multi_level_summary': result,
+                'summary_length': len(main_summary),
+                'compression_ratio': round(len(main_summary) / len(text_content) * 100, 1),
+                'has_multi_level_summary': True
+            })
+            response_data = {
+                "multi_level_summary": result,
+                "standard_summary": main_summary
+            }
+            
+        else:
+            # Standard summary
+            new_summary = generate_summary(text_content, summary_type)
+            update_data.update({
+                'summary': new_summary,
+                'summary_length': len(new_summary),
+                'compression_ratio': round(len(new_summary) / len(text_content) * 100, 1),
+                'structured_summary': None,  # Clear structured if switching to standard
+                'has_structured_summary': False
+            })
+            response_data = {
+                "standard_summary": new_summary
+            }
+        
+        files_collection.update_one(
+            {"_id": file_doc["_id"]},
+            {"$set": update_data}
+        )
         
         return jsonify({
-            'summary': summary,
-            'original_length': len(text),
-            'summary_length': len(summary),
-            'compression_ratio': round(len(summary) / len(text) * 100, 1)
-        })
+            "success": True,
+            "message": f"File re-summarized with {summary_type} detail level and {output_format} format",
+            **response_data,
+            "summary_length": update_data.get('summary_length', 0),
+            "compression_ratio": update_data.get('compression_ratio', 0)
+        }), 200
+        
     except Exception as e:
-        return jsonify({'error': f'Summarization failed: {str(e)}'}), 500
-    
+        print(f"❌ Error re-summarizing file: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+# 5. Update the /summary/<file_id> endpoint to include structured data
 @app.route('/summary/<file_id>', methods=['GET'])
 def get_summary(file_id):
-    """Fetch summary + content for a given file"""
+    """Fetch summary + content with enhanced details"""
     try:
+        include_structured = request.args.get('structured', 'false').lower() == 'true'
+        
         files_collection = db["files"]
 
         # Build query safely
@@ -1114,20 +1396,27 @@ def get_summary(file_id):
         if not file_doc:
             return jsonify({"success": False, "error": "File not found"}), 404
 
-        return jsonify({
+        response_data = {
             "success": True,
             "file_id": str(file_doc["_id"]),
             "original_name": file_doc.get("original_name", "Untitled Document"),
             "filename": file_doc.get("filename"),
             "summary": file_doc.get("summary", "No summary available"),
-            "content": file_doc.get("content", "")
-        }), 200
+            "content": file_doc.get("content", ""),
+            "summary_type": file_doc.get("summary_type", "unknown"),
+            "compression_ratio": file_doc.get("compression_ratio", 0),
+            "last_summarized": file_doc.get("last_summarized", "").isoformat() if file_doc.get("last_summarized") else None
+        }
+        
+        # Include structured summary if requested and available
+        if include_structured and file_doc.get("structured_summary"):
+            response_data["structured_summary"] = file_doc["structured_summary"]
+        
+        return jsonify(response_data), 200
 
     except Exception as e:
         print(f"❌ Error in /summary/{file_id}: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
-
-
 
 # Register explainer blueprint
 app.register_blueprint(explain_bp)

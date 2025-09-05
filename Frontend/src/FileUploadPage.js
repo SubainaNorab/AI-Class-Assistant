@@ -1,12 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Upload, File, X, Loader2, AlertCircle, CheckCircle } from "lucide-react";
 
-// Mock navigate for demonstration - replace with your actual useNavigate hook
-const mockNavigate = (path) => {
-  console.log(`🚀 Navigation triggered to: ${path}`);
-  // In your real app: navigate(path);
-};
-
 const FileUploadPage = () => {
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -15,29 +9,50 @@ const FileUploadPage = () => {
   const fileInputRef = useRef(null);
   const [toasts, setToasts] = useState([]);
 
-  // Mock data similar to what you're getting
-  useEffect(() => {
-    // Simulate the data structure you're receiving
-    setUploads([
-      {
-        _id: "68ab06070c918d1753bce35e",
-        original_name: "Quiz Management Update.pdf",
-        filename: "quiz_management_update.pdf", 
-        category: "general",
-        size: 1024000,
-        upload_date: new Date().toISOString(),
-        user_id: "68ab06070c918d1753bce35e"
-      },
-      {
-        _id: "68ab06070c918d1753bce35f",
-        original_name: "Another Document.docx",
-        filename: "another_document.docx",
-        category: "academic", 
-        size: 2048000,
-        upload_date: new Date(Date.now() - 86400000).toISOString(),
-        user_id: "68ab06070c918d1753bce35e"
+  // Get user ID from localStorage or use a default
+  const getUserId = () => {
+    try {
+      const userData = localStorage.getItem('user');
+      if (userData) {
+        const user = JSON.parse(userData);
+        return user.id || user._id || user.userId || 'anonymous';
       }
-    ]);
+    } catch (e) {
+      console.error('Error getting user ID:', e);
+    }
+    return 'test_user_123'; // Using the same ID that worked in Postman
+  };
+
+  // Fetch uploaded files
+  const fetchUploads = async () => {
+    try {
+      const userId = getUserId();
+      console.log('📡 Fetching uploads for user:', userId);
+      
+      const response = await fetch(`http://localhost:5000/uploads?user_id=${userId}`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('📦 Uploads response:', data);
+      
+      if (data.success) {
+        setUploads(data.files || data.uploads || []);
+        console.log('✅ Loaded', data.files?.length || 0, 'files');
+      } else {
+        console.error('❌ Failed to fetch uploads:', data.error);
+        addToast('Failed to load uploads: ' + data.error, 'error');
+      }
+    } catch (err) {
+      console.error('❌ Error fetching uploads:', err);
+      addToast('Error loading uploads: ' + err.message, 'error');
+    }
+  };
+
+  useEffect(() => {
+    fetchUploads();
   }, []);
 
   const addToast = (message, type = "info") => {
@@ -50,12 +65,14 @@ const FileUploadPage = () => {
 
   const handleFileChange = (e) => {
     const newFiles = Array.from(e.target.files);
+    console.log('📁 Files selected:', newFiles.map(f => f.name));
     setFiles((prev) => [...prev, ...newFiles]);
   };
 
   const handleDrop = (e) => {
     e.preventDefault();
     const droppedFiles = Array.from(e.dataTransfer.files);
+    console.log('📁 Files dropped:', droppedFiles.map(f => f.name));
     setFiles((prev) => [...prev, ...droppedFiles]);
   };
 
@@ -67,123 +84,234 @@ const FileUploadPage = () => {
     setFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
+  // FIXED: Proper file upload function
   const handleUpload = async () => {
     if (files.length === 0) return;
     
     setLoading(true);
-    setTimeout(() => {
+    setError(null);
+    console.log('🚀 Starting upload of', files.length, 'files');
+
+    try {
+      // Upload each file sequentially
+      for (const file of files) {
+        await uploadSingleFile(file);
+      }
+      
       addToast(`Uploaded ${files.length} files successfully!`, "success");
       setFiles([]);
+      fetchUploads(); // Refresh the uploads list
+      
+    } catch (err) {
+      console.error('❌ Upload process failed:', err);
+      setError(err.message);
+      addToast(`Upload failed: ${err.message}`, "error");
+    } finally {
       setLoading(false);
-    }, 2000);
+    }
   };
 
-  // Enhanced navigation function with comprehensive debugging
-  const handleNavigateToSummary = async (upload) => {
-    console.log("🔍 === NAVIGATION DEBUG START ===");
-    console.log("📄 Full upload object:", JSON.stringify(upload, null, 2));
-    
-    // Check all possible ID fields
-    const idFields = ['_id', 'id', 'file_id', 'fileId', 'document_id'];
-    let fileId = null;
-    let usedField = null;
-    
-    for (const field of idFields) {
-      if (upload[field]) {
-        fileId = upload[field];
-        usedField = field;
-        console.log(`✅ Found ID in field '${field}':`, fileId);
-        break;
+  // FIXED: Proper single file upload with better error handling
+  const uploadSingleFile = async (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('user_id', getUserId());
+
+    console.log('📤 Uploading file:', file.name, 'Size:', file.size, 'bytes');
+    console.log('👤 User ID:', getUserId());
+
+    try {
+      const response = await fetch('http://localhost:5000/upload', {
+        method: 'POST',
+        body: formData,
+        // Don't set Content-Type header - browser will set it automatically
+      });
+
+      console.log('📡 Upload response status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Server error response:', errorText);
+        throw new Error(`Upload failed: ${response.status} ${response.statusText}`);
       }
+
+      const data = await response.json();
+      console.log('✅ Upload response data:', data);
+
+      if (!data.success) {
+        throw new Error(data.error || 'Upload failed on server');
+      }
+
+      console.log('✅ Upload successful for:', file.name);
+      return data;
+      
+    } catch (error) {
+      console.error('❌ Upload error for', file.name, ':', error);
+      throw new Error(`Failed to upload ${file.name}: ${error.message}`);
     }
-    
+  };
+
+  const handleNavigateToSummary = (upload) => {
+    const fileId = upload._id || upload.id || upload.file_id;
     if (!fileId) {
-      console.error("❌ No valid file ID found!");
-      console.log("Available fields:", Object.keys(upload));
       addToast("Error: No file ID found", "error");
       return;
     }
-
-    // Validate ID format
-    if (typeof fileId !== 'string' || fileId.length < 10) {
-      console.error("❌ Invalid file ID format:", fileId, "Length:", fileId.length);
-      addToast("Error: Invalid file ID format", "error");
-      return;
-    }
-
-    console.log(`🎯 Using field '${usedField}' with value:`, fileId);
     
-    const targetPath = `/summary/${fileId}`;
-    console.log("🚀 Target path:", targetPath);
-    
-    // Add loading state
-    addToast("Navigating to summary...", "info");
-    
-    try {
-      // Method 1: Router navigation (preferred)
-      console.log("🔄 Attempting router navigation...");
-      mockNavigate(targetPath);
-      
-      // If you're using React Router, uncomment this:
-      // navigate(targetPath);
-      
-      console.log("✅ Router navigation initiated");
-      
-    } catch (routerError) {
-      console.error("❌ Router navigation failed:", routerError);
-      
-      // Method 2: Direct URL change (fallback)
-      try {
-        console.log("🔄 Attempting direct URL navigation...");
-        
-        // Check if we're in browser environment
-        if (typeof window !== 'undefined') {
-          window.location.href = targetPath;
-          console.log("✅ Direct navigation initiated");
-        } else {
-          console.error("❌ Window object not available");
-        }
-        
-      } catch (directError) {
-        console.error("❌ Direct navigation also failed:", directError);
-        addToast("Navigation failed completely", "error");
-      }
-    }
-    
-    console.log("🔍 === NAVIGATION DEBUG END ===");
+    console.log('🧭 Navigating to summary for file ID:', fileId);
+    window.location.href = `/summary/${fileId}`;
   };
 
-  // Test function to verify your routing setup
-  const testNavigation = () => {
-    console.log("🧪 Testing navigation with mock ID...");
-    const mockUpload = {
-      _id: "test123456789",
-      original_name: "Test Document.pdf"
-    };
-    handleNavigateToSummary(mockUpload);
+  const formatFileSize = (bytes) => {
+    if (!bytes || bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  // Check if summary data is being fetched (debugging the console logs you showed)
-  const checkSummaryFetch = async (fileId) => {
-    console.log("🔍 Testing summary fetch for ID:", fileId);
-    
-    try {
-      const response = await fetch(`http://localhost:5000/summary/${fileId}`);
-      console.log("📡 Summary fetch response status:", response.status);
-      
-      if (response.ok) {
-        const data = await response.json();
-        console.log("📄 Summary data:", data);
-        
-        if (data.summary) {
-          console.log("✅ Summary content preview:", data.summary.substring(0, 100) + "...");
-        }
-      } else {
-        console.error("❌ Summary fetch failed with status:", response.status);
-      }
-    } catch (error) {
-      console.error("❌ Summary fetch error:", error);
-    }
+  const styles = {
+    container: {
+      padding: "20px",
+      maxWidth: "1200px",
+      margin: "0 auto",
+      fontFamily: "'Inter', sans-serif",
+    },
+    title: {
+      fontSize: "28px",
+      fontWeight: "bold",
+      marginBottom: "20px",
+      color: "#1f2937",
+    },
+    dropzone: {
+      border: "2px dashed #2563eb",
+      borderRadius: "12px",
+      padding: "40px",
+      textAlign: "center",
+      cursor: "pointer",
+      marginBottom: "20px",
+      transition: "border-color 0.3s",
+      backgroundColor: "#f8f9fa",
+    },
+    fileList: {
+      marginBottom: "20px",
+      backgroundColor: "#f8f9fa",
+      padding: "16px",
+      borderRadius: "8px",
+    },
+    fileItem: {
+      display: "flex",
+      alignItems: "center",
+      gap: "8px",
+      marginBottom: "8px",
+      padding: "8px",
+      backgroundColor: "white",
+      borderRadius: "6px",
+      border: "1px solid #e5e7eb",
+    },
+    fileName: {
+      flex: 1,
+      fontSize: "14px",
+      fontWeight: "500",
+    },
+    removeButton: {
+      border: "none",
+      background: "transparent",
+      cursor: "pointer",
+      color: "#ef4444",
+      padding: "4px",
+      borderRadius: "4px",
+      display: "flex",
+      alignItems: "center",
+    },
+    uploadButton: {
+      width: "100%",
+      padding: "16px",
+      borderRadius: "8px",
+      color: "white",
+      fontWeight: "600",
+      border: "none",
+      marginBottom: "30px",
+      fontSize: "16px",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: "8px",
+      backgroundColor: "#2563eb",
+      cursor: "pointer",
+      transition: "background-color 0.2s",
+    },
+    uploadButtonDisabled: {
+      backgroundColor: "#cbd5e1",
+      cursor: "not-allowed",
+    },
+    subTitle: {
+      fontSize: "22px",
+      fontWeight: "600",
+      marginBottom: "20px",
+      color: "#374151",
+    },
+    uploadList: {
+      display: "grid",
+      gridTemplateColumns: "repeat(auto-fit, minmax(350px, 1fr))",
+      gap: "20px",
+    },
+    uploadCard: {
+      padding: "20px",
+      border: "1px solid #e5e7eb",
+      borderRadius: "12px",
+      backgroundColor: "white",
+      boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+    },
+    uploadInfo: {
+      marginBottom: "16px",
+    },
+    uploadName: {
+      fontWeight: "600",
+      fontSize: "16px",
+      marginBottom: "8px",
+      color: "#1f2937",
+    },
+    uploadMeta: {
+      fontSize: "13px",
+      color: "#6b7280",
+      lineHeight: "1.4",
+    },
+    actionButtons: {
+      display: "grid",
+      gridTemplateColumns: "repeat(3, 1fr)",
+      gap: "8px",
+    },
+    actionBtn: {
+      padding: "10px 12px",
+      borderRadius: "6px",
+      border: "none",
+      color: "white",
+      cursor: "pointer",
+      fontWeight: "500",
+      fontSize: "13px",
+      textAlign: "center",
+      transition: "opacity 0.2s",
+    },
+    toastContainer: {
+      position: "fixed",
+      top: "20px",
+      right: "20px",
+      display: "flex",
+      flexDirection: "column",
+      gap: "8px",
+      zIndex: 9999,
+    },
+    toast: {
+      display: "flex",
+      alignItems: "center",
+      gap: "8px",
+      padding: "12px 16px",
+      borderRadius: "8px",
+      fontWeight: "500",
+      boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+      minWidth: "250px",
+    },
   };
 
   return (
@@ -208,39 +336,12 @@ const FileUploadPage = () => {
         ))}
       </div>
 
-      <h1 style={styles.title}>Upload Documents - Debug Version</h1>
-
-      {/* Debug Panel */}
-      <div style={styles.debugPanel}>
-        <h3 style={styles.debugTitle}>🔧 Navigation Debug Tools</h3>
-        <div style={styles.debugButtons}>
-          <button style={styles.debugBtn} onClick={testNavigation}>
-            Test Navigation
-          </button>
-          <button 
-            style={styles.debugBtn} 
-            onClick={() => checkSummaryFetch("68ab06070c918d1753bce35e")}
-          >
-            Test Summary Fetch
-          </button>
-          <button 
-            style={styles.debugBtn} 
-            onClick={() => console.log("Current uploads:", uploads)}
-          >
-            Log Uploads
-          </button>
-        </div>
-        <div style={styles.debugInfo}>
-          <p><strong>Expected behavior:</strong> Click "Summarize" → Navigate to /summary/[fileId]</p>
-          <p><strong>Check console:</strong> Look for navigation debug logs</p>
-          <p><strong>Router issue?:</strong> Verify your route setup in App.js or main router</p>
-        </div>
-      </div>
+      <h1 style={styles.title}>Upload Documents</h1>
 
       {/* File Upload Section */}
       <div
         style={styles.dropzone}
-        onClick={() => fileInputRef.current.click()}
+        onClick={() => fileInputRef.current?.click()}
         onDrop={handleDrop}
         onDragOver={handleDragOver}
       >
@@ -258,14 +359,18 @@ const FileUploadPage = () => {
       {/* Selected files */}
       {files.length > 0 && (
         <div style={styles.fileList}>
-          <h3>Selected Files:</h3>
+          <h3>Selected Files ({files.length}):</h3>
           {files.map((file, index) => (
             <div key={index} style={styles.fileItem}>
-              <File size={20} />
+              <File size={20} color="#4b5563" />
               <span style={styles.fileName}>{file.name}</span>
+              <span style={{ fontSize: '12px', color: '#6b7280' }}>
+                {formatFileSize(file.size)}
+              </span>
               <button
                 style={styles.removeButton}
                 onClick={() => removeFile(index)}
+                title="Remove file"
               >
                 <X size={16} />
               </button>
@@ -278,40 +383,47 @@ const FileUploadPage = () => {
       <button
         style={{
           ...styles.uploadButton,
-          backgroundColor: files.length === 0 ? "#cbd5e1" : "#2563eb",
-          cursor: files.length === 0 ? "not-allowed" : "pointer",
+          ...(files.length === 0 || loading ? styles.uploadButtonDisabled : {})
         }}
         onClick={handleUpload}
         disabled={loading || files.length === 0}
       >
-        {loading ? <Loader2 size={20} /> : "Upload"}
+        {loading ? (
+          <>
+            <Loader2 size={20} style={{ animation: 'spin 1s linear infinite' }} />
+            Uploading...
+          </>
+        ) : (
+          `Upload ${files.length} File${files.length !== 1 ? 's' : ''}`
+        )}
       </button>
 
       {/* Uploaded files */}
       <h2 style={styles.subTitle}>Your Uploads ({uploads.length} files)</h2>
       <div style={styles.uploadList}>
         {uploads.length === 0 ? (
-          <p>No uploads yet.</p>
+          <p style={{ textAlign: 'center', color: '#6b7280', padding: '20px' }}>
+            No files uploaded yet. Select files above to get started.
+          </p>
         ) : (
           uploads.map((upload, index) => (
             <div key={upload._id || index} style={styles.uploadCard}>
               <div style={styles.uploadInfo}>
                 <h3 style={styles.uploadName}>{upload.original_name}</h3>
                 <div style={styles.uploadMeta}>
-                  <p>📁 {upload.category} • {Math.round(upload.size / 1024)} KB</p>
+                  <p>📁 {upload.category || 'document'} • {formatFileSize(upload.size)}</p>
                   <p>📅 {new Date(upload.upload_date).toLocaleDateString()}</p>
-                  <p>🆔 {upload._id}</p>
-                  <p>👤 User: {upload.user_id}</p>
+                  {upload.has_summary && (
+                    <p style={{ color: '#16a34a', fontWeight: '500' }}>✅ Has summary</p>
+                  )}
                 </div>
               </div>
               
               <div style={styles.actionButtons}>
                 <button
                   style={{ ...styles.actionBtn, backgroundColor: "#2563eb" }}
-                  onClick={() => {
-                    console.log(`🎯 Summarize clicked for: ${upload.original_name}`);
-                    handleNavigateToSummary(upload);
-                  }}
+                  onClick={() => handleNavigateToSummary(upload)}
+                  disabled={!upload.has_summary}
                 >
                   📄 Summarize
                 </button>
@@ -319,8 +431,7 @@ const FileUploadPage = () => {
                   style={{ ...styles.actionBtn, backgroundColor: "#16a34a" }}
                   onClick={() => {
                     const fileId = upload._id || upload.id;
-                    console.log(`🎴 Flashcards clicked for ID: ${fileId}`);
-                    mockNavigate(`/flashcards/${fileId}`);
+                    window.location.href = `/flashcards/${fileId}`;
                   }}
                 >
                   🎴 Flashcards
@@ -329,8 +440,7 @@ const FileUploadPage = () => {
                   style={{ ...styles.actionBtn, backgroundColor: "#9333ea" }}
                   onClick={() => {
                     const fileId = upload._id || upload.id;
-                    console.log(`💡 Explain clicked for ID: ${fileId}`);
-                    mockNavigate(`/explain/${fileId}`);
+                    window.location.href = `/explain/${fileId}`;
                   }}
                 >
                   💡 Explain
@@ -340,177 +450,16 @@ const FileUploadPage = () => {
           ))
         )}
       </div>
+
+      {/* Add CSS for spinner animation */}
+      <style>{`
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
-};
-
-const styles = {
-  container: {
-    padding: "20px",
-    maxWidth: "1200px",
-    margin: "0 auto",
-    fontFamily: "'Inter', sans-serif",
-  },
-  title: {
-    fontSize: "28px",
-    fontWeight: "bold",
-    marginBottom: "20px",
-    color: "#1f2937",
-  },
-  debugPanel: {
-    backgroundColor: "#f0f9ff",
-    border: "2px solid #0ea5e9",
-    borderRadius: "12px",
-    padding: "20px",
-    marginBottom: "30px",
-  },
-  debugTitle: {
-    color: "#0c4a6e",
-    marginBottom: "16px",
-    fontSize: "18px",
-  },
-  debugButtons: {
-    display: "flex",
-    gap: "10px",
-    marginBottom: "16px",
-    flexWrap: "wrap",
-  },
-  debugBtn: {
-    padding: "8px 16px",
-    backgroundColor: "#0ea5e9",
-    color: "white",
-    border: "none",
-    borderRadius: "6px",
-    cursor: "pointer",
-    fontSize: "14px",
-    fontWeight: "500",
-    transition: "background-color 0.2s",
-  },
-  debugInfo: {
-    backgroundColor: "#e0f7fa",
-    padding: "12px",
-    borderRadius: "8px",
-    fontSize: "14px",
-    lineHeight: "1.6",
-  },
-  dropzone: {
-    border: "2px dashed #2563eb",
-    borderRadius: "12px",
-    padding: "40px",
-    textAlign: "center",
-    cursor: "pointer",
-    marginBottom: "20px",
-    transition: "border-color 0.3s",
-  },
-  fileList: {
-    marginBottom: "20px",
-    backgroundColor: "#f8f9fa",
-    padding: "16px",
-    borderRadius: "8px",
-  },
-  fileItem: {
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-    marginBottom: "8px",
-    padding: "8px",
-    backgroundColor: "white",
-    borderRadius: "6px",
-  },
-  fileName: {
-    flex: 1,
-    fontSize: "14px",
-  },
-  removeButton: {
-    border: "none",
-    background: "transparent",
-    cursor: "pointer",
-    color: "#ef4444",
-    padding: "4px",
-    borderRadius: "4px",
-  },
-  uploadButton: {
-    width: "100%",
-    padding: "16px",
-    borderRadius: "8px",
-    color: "white",
-    fontWeight: "600",
-    border: "none",
-    marginBottom: "30px",
-    fontSize: "16px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: "8px",
-  },
-  subTitle: {
-    fontSize: "22px",
-    fontWeight: "600",
-    marginBottom: "20px",
-    color: "#374151",
-  },
-  uploadList: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(350px, 1fr))",
-    gap: "20px",
-  },
-  uploadCard: {
-    padding: "20px",
-    border: "1px solid #e5e7eb",
-    borderRadius: "12px",
-    backgroundColor: "white",
-    boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
-    transition: "transform 0.2s, box-shadow 0.2s",
-  },
-  uploadInfo: {
-    marginBottom: "16px",
-  },
-  uploadName: {
-    fontWeight: "600",
-    fontSize: "16px",
-    marginBottom: "8px",
-    color: "#1f2937",
-  },
-  uploadMeta: {
-    fontSize: "13px",
-    color: "#6b7280",
-    lineHeight: "1.4",
-  },
-  actionButtons: {
-    display: "grid",
-    gridTemplateColumns: "repeat(3, 1fr)",
-    gap: "8px",
-  },
-  actionBtn: {
-    padding: "10px 12px",
-    borderRadius: "6px",
-    border: "none",
-    color: "white",
-    cursor: "pointer",
-    fontWeight: "500",
-    fontSize: "13px",
-    transition: "opacity 0.2s, transform 0.1s",
-    textAlign: "center",
-  },
-  toastContainer: {
-    position: "fixed",
-    top: "20px",
-    right: "20px",
-    display: "flex",
-    flexDirection: "column",
-    gap: "8px",
-    zIndex: 9999,
-  },
-  toast: {
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-    padding: "12px 16px",
-    borderRadius: "8px",
-    fontWeight: "500",
-    boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-    minWidth: "250px",
-  },
 };
 
 export default FileUploadPage;
